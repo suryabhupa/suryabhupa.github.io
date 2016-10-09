@@ -1,19 +1,19 @@
 # Site Info
 title:              "principia vitae"
-description:        "The Plain is a Minimalist Jekyll theme that focuses on writing matters."
-google_verify:      epFgX0s_0RM3CdjwFcsewfXzPov2g8s9ZBOLyaIUH-o # Put your Google Verification here
-google_analytics:   UA-XXXXXXX-X # Put your Google Analytics code
+description:        "Writings in AI, deep learning, intelligence, and MIT."
+google_verify:      HdgB206sJq6STy2hJJTmWDunWz8vq2wd_DueQdr-7EM
+google_analytics:   UA-85438373-1 # Put your Google Analytics code
 
 # Author Info
-author_name:        "Heiswayi Nrird"
-author_email:       hnrird@gmail.com
-author_gravatar:    2b38b1b0e7e08b69379bd61582adf0c8 # Gravatar md5 hash
-twitter_username:   HeiswayiNrird
+author_name:        "Surya Bhupatiraju"
+author_email:       surya@mit.edu
+author_gravatar:    2ae2220d52b21a6a3521843df6f97a8ae # Gravatar md5 hash
+twitter_username:   suryabhupa
 
 # Site Settings
 baseurl:            "" # Base URL must end WITHOUT a slash, default: ""
 permalink:          /notes/:title # Post permalink
-timezone:           Asia/Kuala_Lumpur # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone:           America/New_York # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 # Site Build
 highlighter:        rouge
