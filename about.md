@@ -3,10 +3,8 @@ layout: page
 title: About
 ---
 
-Hello.
+Hi! My name is Surya Bhupatiraju, and a fourth year undergraduate at MIT studying computer science.
 
-The main purpose of this theme is to be as simple as it could be, so you can focus on writing your stuffs. This is your About page. You may describe about yourself here; who you are, what are you currently doing, share some of your projects, your social links and how people can contact you, etc.
+I'm interested in artificial intelligence and deep learning, with an emphasis on building agents that can learn and communicate to solve difficult, unsolved problems. I'm fascinated by intelligence, and hope to one day manifest it in the machines we build.
 
-**Just write thing that matters..**
-
-Enjoy!
+Feel free to contact me at <surya@mit.edu> for any inquiries; I love hearing thoughts and questions!
