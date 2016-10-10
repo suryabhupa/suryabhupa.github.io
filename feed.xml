@@ -10,7 +10,7 @@
   <rights>Copyright @
     {{ site.time | date: '%Y' }},
     {{ site.author_name | xml_escape }}</rights>
-  <icon>{{ site.baseurl }}/assets/favicon.png</icon>
+  <icon>{{ site.baseurl }}/assets/suryabhupa_logo11.png</icon>
 
   <author>
     <name>{{ site.author_name | xml_escape }}</name>
