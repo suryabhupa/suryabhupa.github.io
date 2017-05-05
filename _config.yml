@@ -1,55 +1,26 @@
-# Site Info
-title:              "principia vitae"
-description:        "Writings in AI, deep learning, intelligence, and MIT."
-google_verify:      HdgB206sJq6STy2hJJTmWDunWz8vq2wd_DueQdr-7EM
-google_analytics:   UA-85438373-1 # Put your Google Analytics code
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely need to edit after that.
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'jekyll serve'. If you change this file, please restart the server process.
 
-# Author Info
-author_name:        "Surya Bhupatiraju"
-author_email:       surya@mit.edu
-author_gravatar:    ae2220d52b21a6a3521843df6f97a8ae# Gravatar md5 hash
-twitter_username:   suryabhupa
+# Site settings
+title:                  "principia vitae"
+email:                  surya@mit.edu
+description:            "Writings in AI, deep learning, intelligence, and MIT."
+baseurl:                "" # the subpath of your site, e.g. /blog
+google_verify:          HdgB206sJq6STy2hJJTmWDunWz8vq2wd_DueQdr-7EM
+google_analytics:       UA-85438373-1 # Put your Google Analytics code
 
-# Site Settings
-baseurl:            "" # Base URL must end WITHOUT a slash, default: ""
-permalink:          /notes/:title # Post permalink
-timezone:           America/New_York # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+twitter_username:       suryabhupa
+github_username:        suryabhupa
+author_gravatar:        ae2220d52b21a6a3521843df6f97a8ae# Gravatar md5 hash
+paginate:               5
+timezone:               America/New_York # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+gems:                   [jekyll-paginate, kramdown]
 
-# Site Build
-highlighter:        rouge
-#markdown:           redcarpet
-#redcarpet:
-#    extensions:     ["no_intra_emphasis", "fenced_code_blocks", "autolink", "tables", "with_toc_data", "highlight", "footnotes"]
-markdown:           kramdown
-kramdown:
-    input:          GFM
-sass:
-    style:          :compressed
-
-# Other Params
-include:            [ "robots.txt" ]
-exclude:            [ "LICENSE", "README.md", "CNAME", "vendor", "Gemfile" ]
-gems:
-  - jekyll-sitemap
-
-compress_html:
-    clippings:      all
-    ingore:
-        envs:       [ "test" ]
-
-defaults:
-  -
-    scope:
-      path:         ""
-    values:
-      layout:       "null"
-  -
-    scope:
-      type:         "pages"
-    values:
-      layout:       "page"
-  -
-    scope:
-      type:         "posts"
-    values:
-      layout:       "post"
+# Build settings
+markdown:               kramdown
+include:                [ "robots.txt" ]
+exclude:                [ "LICENSE", "README.md", "CNAME", "vendor", "Gemfile" ]
