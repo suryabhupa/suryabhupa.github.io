@@ -1,8 +1,7 @@
-
 ---
 layout: post
 title:  "Hello World!"
-date:   2016-03-30 19:30:00 +0530
+date:   2016-03-30 19:30:00 -0500
 categories: ["hello"]
 author: "Surya Bhupatiraju"
 ---
