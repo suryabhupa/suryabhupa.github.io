@@ -1,20 +1,20 @@
 ---
-layout: post
+layout: default
 ---
 <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
-  <div class="wrapper">
-    <div class="trigger site-navigation center-text" style="text-align: center; vertical-align: middle; padding-bottom: 50px;">
-      <a class="page-link" href="{{site.url}}{{site.baseurl}}">HOME</a>
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline"><a class="post-title-link"  href="{{page.url}}">{{ page.title }}</a></h1>
+  <center>  <p class="post-meta"><time datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">{{ page.date | date: "%b %-d, %Y" }}</time></p>
+    {% if page.author %}
+     <div class="">
+       <center><p ><strong><span class="authorKeyword">Author</span><span class="small-site-title"> <h2 style="letter-spacing: 3px !important;
+       text-transform: uppercase !important;">{{page.author}}</h2></span></strong></p></center>
 
-      {% for sitePage in site.pages %}
-      {% if sitePage.title %}
-
-      <span class="exclamationMark">|</span><a class="page-link" href="{{sitePage.url | prepend: site.baseurl }}">{{sitePage.title}}</a>
-      {% endif %}
-      {% endfor %}
-    </div>
-  </div>
+     </div>
+     {% endif %}
+   </center>
+  </header>
 
   <div class="post-content" itemprop="articleBody">
     {{ content }}
