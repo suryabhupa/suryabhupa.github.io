@@ -6,7 +6,7 @@ layout: page
 
 <br>
 
-Hi! I'm Surya Bhupatiraju. I'm a current Google Brain resident interested in reinforcement learning, program synthesis, and generative models.
+Hi! I'm Surya Bhupatiraju. I'm a current <a href="https://research.google.com/teams/brain/residency/">Google Brain resident</a> interested in reinforcement learning, program synthesis, and generative models.
 
 <!-- <h2>Skills</h2>
 
