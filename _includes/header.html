@@ -1,19 +1,24 @@
+{% if page.title == "Home"
+   or page.title == "Tags"
+%}{% assign showHeader = true %}{% endif %}
 
-<div class="wrapper">
-  <center> <a href="http://suryabhupa.com"><div class="site-title">   {{site.title}} </div></a></center>
-</div>
-<div class="wrapper site-description">
-<center>  {{site.description}} </center>
-</div>
-<div class="wrapper">
-  <div class="trigger site-navigation center-text" style="text-align: center; vertical-align: middle; padding-bottom: 50px;">
-    <a class="page-link" href="{{site.url}}{{site.baseurl}}">HOME</a>
+{% if showHeader == true %}
+    <header class="header-home {% if site.animation %}animated{% endif %}">
+        {% if site.about %}
+            <a class="link" href="{{ site.url }}/about">
+                <img class="selfie" alt="{{ site.name }}" src="{% if site.external-image %}{{ site.picture }}{% else %}{{ site.url }}/{{ site.picture }}{% endif %}" />
+            </a>
+        {% else %}
+            <span class="link">
+                <img class="selfie" alt="{{ site.name }}" src="{% if site.external-image %}{{ site.picture }}{% else %}{{ site.url }}/{{ site.picture }}{% endif %}" />
+            </span>
+        {% endif %}
 
-    {% for sitePage in site.pages %}
-    {% if sitePage.title %}
+        <h1 class="title">{{ site.name }}</h1>
+        <h2 class="description">{{ site.bio }}</h2>
 
-    <span class="exclamationMark">|</span><a class="page-link" href="{{sitePage.url | prepend: site.baseurl }}">{{sitePage.title}}</a>
-    {% endif %}
-    {% endfor %}
-  </div>
-</div>
+        {% include social-links.html %}
+    </header>
+{% endif %}
+
+{% include nav.html %}
