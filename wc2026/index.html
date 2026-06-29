@@ -1,0 +1,419 @@
+<\!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>World Cup 2026 — Knockout Bracket Predictor</title>
+<style>
+  :root {
+    --bg: #f7f1e3;
+    --card: #ffffff;
+    --line: #d8ceb4;
+    --connector: #bdb293;
+    --text: #2e2812;
+    --muted: #93875f;
+    --pick: #1e6b3a;
+    --pick-bg: #e7f2eb;
+    --gold: #b8860b;
+    --gold-bg: #fdf5e0;
+
+    --match-h: 64px;
+    --bracket-h: 744px;        /* 8 R32 matches space-around → 93px per slot */
+    --col-w: 184px;
+    --gap: 36px;
+    --stub: 18px;              /* half of gap */
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { font-size: 12px; color: var(--muted); }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+  input[type="text"] {
+    background: var(--card); border: 1px solid var(--line); color: var(--text);
+    padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; width: 180px;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
+  button {
+    background: var(--card); border: 1px solid var(--line); color: var(--text);
+    padding: 7px 12px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  button:hover { background: #fdfbf4; border-color: var(--connector); }
+  button:focus-visible { outline: 2px solid var(--pick); outline-offset: 1px; }
+  button.primary { background: var(--pick); border-color: var(--pick); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  .progress { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---- Bracket layout ------------------------------------------------ */
+  .bracket-scroll { overflow-x: auto; padding: 36px 24px 28px; }
+  .bracket {
+    display: flex; align-items: center; gap: var(--gap);
+    min-width: min-content; margin: 0 auto; width: fit-content;
+  }
+  .side { display: flex; gap: var(--gap); align-items: stretch; }
+  .side.right { flex-direction: row-reverse; }
+
+  .col {
+    display: flex; flex-direction: column; justify-content: space-around;
+    width: var(--col-w); height: var(--bracket-h); position: relative;
+  }
+  .round-label {
+    position: absolute; top: -20px; left: 0; right: 0;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); text-align: center;
+  }
+
+  /* ---- Match card ---------------------------------------------------- */
+  .match {
+    background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+    height: var(--match-h); display: flex; flex-direction: column;
+    position: relative; box-shadow: 0 1px 2px rgba(46,40,18,0.06);
+  }
+  .team {
+    flex: 1; display: flex; align-items: center; gap: 7px; padding: 0 9px;
+    cursor: pointer; font-size: 13px; font-weight: 500; user-select: none;
+    border-left: 3px solid transparent;
+  }
+  .side.right .team { border-left: none; border-right: 3px solid transparent; }
+  .team + .team { border-top: 1px solid var(--line); }
+  .team:hover { background: #fbf7ec; }
+  .team.empty { color: var(--muted); font-size: 11px; font-weight: 400; cursor: default; font-style: italic; }
+  .team.empty:hover { background: transparent; }
+  .team.picked { background: var(--pick-bg); border-left-color: var(--pick); color: var(--pick); font-weight: 600; }
+  .side.right .team.picked { border-right-color: var(--pick); }
+  .team.picked:hover { background: #dbeee2; }
+  .flag { font-size: 16px; line-height: 1; width: 20px; text-align: center; flex-shrink: 0; }
+  .team-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .match-tag {
+    position: absolute; top: -7px; font-size: 9px; color: var(--muted);
+    background: var(--bg); padding: 0 4px; font-variant-numeric: tabular-nums;
+    border-radius: 3px;
+  }
+  .side.left .match-tag, .center .match-tag { left: 6px; }
+  .side.right .match-tag { right: 6px; }
+  .match-date {
+    position: absolute; top: calc(100% + 3px); left: 2px; right: 2px;
+    font-size: 10px; font-style: italic; color: var(--muted);
+    line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  .side.right .match-date { text-align: right; }
+
+  /* ---- Connectors ---------------------------------------------------- */
+  /* Per-round vertical connector heights = bracket-h / (2 × matches in prev round) × 2
+     i.e. distance between adjacent prev-round match centers.               */
+  .col.r16 { --vline: calc(var(--bracket-h) / 8); }   /* 82px  */
+  .col.qf  { --vline: calc(var(--bracket-h) / 4); }   /* 164px */
+  .col.sf  { --vline: calc(var(--bracket-h) / 2); }   /* 328px */
+
+  /* Output stub from every match toward the center */
+  .side .match::after {
+    content: ""; position: absolute; width: var(--stub); height: 2px;
+    background: var(--connector); top: calc(50% - 1px);
+  }
+  .side.left  .match::after { left: 100%; }
+  .side.right .match::after { right: 100%; }
+
+  /* Input bracket on receiving matches: vertical line + center stub */
+  .side .col.r16 .match::before,
+  .side .col.qf  .match::before,
+  .side .col.sf  .match::before {
+    content: ""; position: absolute; width: var(--stub); height: var(--vline);
+    top: calc(50% - var(--vline) / 2);
+    background: linear-gradient(var(--connector),var(--connector)) center/100% 2px no-repeat;
+  }
+  .side.left  .col.r16 .match::before,
+  .side.left  .col.qf  .match::before,
+  .side.left  .col.sf  .match::before { right: 100%; border-left: 2px solid var(--connector); }
+  .side.right .col.r16 .match::before,
+  .side.right .col.qf  .match::before,
+  .side.right .col.sf  .match::before { left: 100%; border-right: 2px solid var(--connector); }
+
+  /* SF → Final: straight line into the center column from both sides */
+  .center .final::before, .center .final::after {
+    content: ""; position: absolute; width: var(--gap); height: 2px;
+    background: var(--connector); top: calc(50% - 1px);
+  }
+  .center .final::before { right: 100%; }
+  .center .final::after  { left: 100%; }
+
+  /* ---- Center column ------------------------------------------------- */
+  .center { width: 208px; height: var(--bracket-h); position: relative; }
+  .center-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); text-align: center;
+  }
+  .center .final {
+    position: absolute; left: 0; right: 0;
+    top: calc(50% - var(--match-h) / 2);
+  }
+  .final-label { position: absolute; left: 0; right: 0; top: calc(50% - var(--match-h) / 2 - 22px); }
+  .champion {
+    position: absolute; left: 0; right: 0; top: calc(50% + var(--match-h) / 2 + 24px);
+    border: 1px solid var(--line); border-radius: 6px; background: var(--card);
+    padding: 12px; text-align: center;
+  }
+  .champion.filled { border-color: var(--gold); background: var(--gold-bg); }
+  .champion-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .champion.filled .champion-label { color: var(--gold); }
+  .champion-team { font-size: 16px; font-weight: 700; display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .champion.filled .champion-team { color: var(--gold); }
+  .third-block { position: absolute; left: 0; right: 0; bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* ---- Copy-link popup ---------------------------------------------- */
+  .share-wrap { position: relative; display: inline-block; }
+  .copy-tip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+    background: var(--text); color: var(--bg);
+    padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: 600;
+    white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .copy-tip::after {
+    content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--text);
+  }
+  .copy-tip.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .copy-tip { transition: none; } }
+</style>
+
+<header>
+  <div>
+    <h1>FIFA World Cup 2026 · Knockout Predictor</h1>
+    <div class="sub">Click a team to advance them. Picks are saved in the URL — copy the link to share.</div>
+  </div>
+  <div class="controls">
+    <span class="progress" id="progress">0 / 32</span>
+    <input type="text" id="bracket-name" placeholder="Bracket name" maxlength="40">
+    <span class="share-wrap">
+      <button class="primary" id="share-btn">Copy share link</button>
+      <span class="copy-tip" id="copy-tip">Link copied!</span>
+    </span>
+    <button id="reset-btn">Reset</button>
+  </div>
+</header>
+
+<div class="bracket-scroll">
+  <div class="bracket" id="bracket"></div>
+</div>
+
+<script>
+(function() {
+  const TEAMS = {
+    RSA:{n:"South Africa",f:"🇿🇦"}, CAN:{n:"Canada",f:"🇨🇦"},
+    BRA:{n:"Brazil",f:"🇧🇷"}, JPN:{n:"Japan",f:"🇯🇵"},
+    GER:{n:"Germany",f:"🇩🇪"}, PAR:{n:"Paraguay",f:"🇵🇾"},
+    NED:{n:"Netherlands",f:"🇳🇱"}, MAR:{n:"Morocco",f:"🇲🇦"},
+    CIV:{n:"Ivory Coast",f:"🇨🇮"}, NOR:{n:"Norway",f:"🇳🇴"},
+    FRA:{n:"France",f:"🇫🇷"}, SWE:{n:"Sweden",f:"🇸🇪"},
+    MEX:{n:"Mexico",f:"🇲🇽"}, ECU:{n:"Ecuador",f:"🇪🇨"},
+    ENG:{n:"England",f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿"}, COD:{n:"DR Congo",f:"🇨🇩"},
+    BEL:{n:"Belgium",f:"🇧🇪"}, SEN:{n:"Senegal",f:"🇸🇳"},
+    USA:{n:"United States",f:"🇺🇸"}, BIH:{n:"Bosnia & Herz.",f:"🇧🇦"},
+    ESP:{n:"Spain",f:"🇪🇸"}, AUT:{n:"Austria",f:"🇦🇹"},
+    POR:{n:"Portugal",f:"🇵🇹"}, CRO:{n:"Croatia",f:"🇭🇷"},
+    SUI:{n:"Switzerland",f:"🇨🇭"}, ALG:{n:"Algeria",f:"🇩🇿"},
+    AUS:{n:"Australia",f:"🇦🇺"}, EGY:{n:"Egypt",f:"🇪🇬"},
+    ARG:{n:"Argentina",f:"🇦🇷"}, CPV:{n:"Cape Verde",f:"🇨🇻"},
+    COL:{n:"Colombia",f:"🇨🇴"}, GHA:{n:"Ghana",f:"🇬🇭"}
+  };
+
+  // d = "date, time · city" (local kickoff). Times TBD for R16 onward.
+  const MATCHES = {
+    73:{d:"Jun 28, 12:00 · Los Angeles",s:[{t:"RSA"},{t:"CAN"}]},
+    74:{d:"Jun 29, 16:30 · Boston",s:[{t:"GER"},{t:"PAR"}]},
+    75:{d:"Jun 29, 19:00 · Monterrey",s:[{t:"NED"},{t:"MAR"}]},
+    76:{d:"Jun 29, 12:00 · Houston",s:[{t:"BRA"},{t:"JPN"}]},
+    77:{d:"Jun 30, 17:00 · New York/NJ",s:[{t:"FRA"},{t:"SWE"}]},
+    78:{d:"Jun 30, 12:00 · Dallas",s:[{t:"CIV"},{t:"NOR"}]},
+    79:{d:"Jun 30, 19:00 · Mexico City",s:[{t:"MEX"},{t:"ECU"}]},
+    80:{d:"Jul 1, 12:00 · Atlanta",s:[{t:"ENG"},{t:"COD"}]},
+    81:{d:"Jul 1, 13:00 · Bay Area",s:[{t:"USA"},{t:"BIH"}]},
+    82:{d:"Jul 1, 17:00 · Seattle",s:[{t:"BEL"},{t:"SEN"}]},
+    83:{d:"Jul 2, 19:00 · Toronto",s:[{t:"POR"},{t:"CRO"}]},
+    84:{d:"Jul 2, 12:00 · Los Angeles",s:[{t:"ESP"},{t:"AUT"}]},
+    85:{d:"Jul 2, 20:00 · Vancouver",s:[{t:"SUI"},{t:"ALG"}]},
+    86:{d:"Jul 3, 13:00 · Miami",s:[{t:"ARG"},{t:"CPV"}]},
+    87:{d:"Jul 3, 18:00 · Kansas City",s:[{t:"COL"},{t:"GHA"}]},
+    88:{d:"Jul 3, 20:30 · Dallas",s:[{t:"AUS"},{t:"EGY"}]},
+    89:{d:"Jul 4 · Philadelphia",s:[{w:74},{w:77}]},
+    90:{d:"Jul 4 · Houston",s:[{w:73},{w:75}]},
+    91:{d:"Jul 5 · New York/NJ",s:[{w:76},{w:78}]},
+    92:{d:"Jul 5 · Mexico City",s:[{w:79},{w:80}]},
+    93:{d:"Jul 6 · Dallas",s:[{w:83},{w:84}]},
+    94:{d:"Jul 6 · Seattle",s:[{w:81},{w:82}]},
+    95:{d:"Jul 7 · Atlanta",s:[{w:86},{w:88}]},
+    96:{d:"Jul 7 · Vancouver",s:[{w:85},{w:87}]},
+    97:{d:"Jul 9 · Boston",s:[{w:89},{w:90}]},
+    98:{d:"Jul 10 · Los Angeles",s:[{w:93},{w:94}]},
+    99:{d:"Jul 11 · Miami",s:[{w:91},{w:92}]},
+    100:{d:"Jul 11 · Kansas City",s:[{w:95},{w:96}]},
+    101:{d:"Jul 14 · Dallas",s:[{w:97},{w:98}]},
+    102:{d:"Jul 15 · Atlanta",s:[{w:99},{w:100}]},
+    103:{d:"Jul 18 · Miami",s:[{l:101},{l:102}]},
+    104:{d:"Jul 19 · New York/NJ",s:[{w:101},{w:102}]}
+  };
+
+  const LEFT = {
+    r32:[74,77,73,75,83,84,81,82],
+    r16:[89,90,93,94],
+    qf:[97,98],
+    sf:[101]
+  };
+  const RIGHT = {
+    r32:[76,78,79,80,86,88,85,87],
+    r16:[91,92,95,96],
+    qf:[99,100],
+    sf:[102]
+  };
+  const ORDER = []; for (let i=73;i<=104;i++) ORDER.push(i);
+
+  let picks = {}, bracketName = "";
+
+  function resolve(slot){
+    if (slot.t) return slot.t;
+    if (slot.w) return winner(slot.w);
+    if (slot.l) return loser(slot.l);
+    return null;
+  }
+  function slotTeams(id){ const m=MATCHES[id]; return [resolve(m.s[0]),resolve(m.s[1])]; }
+  function winner(id){ const p=picks[id]; if(p==null) return null; return slotTeams(id)[p]||null; }
+  function loser(id){ const p=picks[id]; if(p==null) return null; return slotTeams(id)[1-p]||null; }
+
+  function setPick(id,slot){
+    const t=slotTeams(id); if(!t[slot]) return;
+    // Snapshot every existing pick's resolved winner before the change.
+    const before={};
+    for(const mid of ORDER) if(picks[mid]!=null) before[mid]=winner(mid);
+    // Apply the change (toggle off if re-clicking the same team).
+    if(picks[id]===slot) delete picks[id]; else picks[id]=slot;
+    // Any other pick whose resolved winner no longer matches what it was
+    // is now stale — clear it. Iterating in match order makes this cascade.
+    for(const mid of ORDER){
+      if(mid===id||picks[mid]==null) continue;
+      if(winner(mid)!==before[mid]) delete picks[mid];
+    }
+    save(); render();
+  }
+
+  function save(){
+    let p=""; for(const id of ORDER) p+=picks[id]===0?"0":picks[id]===1?"1":"-";
+    const q=new URLSearchParams();
+    if(bracketName) q.set("n",bracketName);
+    q.set("p",p);
+    history.replaceState(null,"","#"+q.toString());
+  }
+  function load(){
+    if(!location.hash) return;
+    try{
+      const q=new URLSearchParams(location.hash.slice(1));
+      bracketName=q.get("n")||"";
+      const p=q.get("p")||"";
+      for(let i=0;i<ORDER.length&&i<p.length;i++){
+        if(p[i]==="0") picks[ORDER[i]]=0;
+        else if(p[i]==="1") picks[ORDER[i]]=1;
+      }
+    }catch(e){}
+  }
+
+  function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+
+  function teamRow(id,idx,code,picked){
+    const d=el("div","team"+(code?"":" empty")+(picked?" picked":""));
+    if(code){
+      const t=TEAMS[code];
+      d.innerHTML='<span class="flag">'+t.f+'</span><span class="team-name">'+t.n+'</span>';
+      d.onclick=()=>setPick(id,idx);
+    } else {
+      const s=MATCHES[id].s[idx];
+      const lbl=s.w?"Winner M"+s.w:s.l?"Loser M"+s.l:"—";
+      d.innerHTML='<span class="flag"></span><span class="team-name">'+lbl+'</span>';
+    }
+    return d;
+  }
+  function matchCard(id,extraCls){
+    const t=slotTeams(id);
+    const c=el("div","match"+(extraCls?" "+extraCls:""));
+    c.appendChild(el("span","match-tag","M"+id));
+    c.appendChild(teamRow(id,0,t[0],picks[id]===0));
+    c.appendChild(teamRow(id,1,t[1],picks[id]===1));
+    c.appendChild(el("span","match-date",MATCHES[id].d));
+    return c;
+  }
+  function column(ids,cls,label){
+    const col=el("div","col "+cls);
+    col.appendChild(el("div","round-label",label));
+    for(const id of ids) col.appendChild(matchCard(id));
+    return col;
+  }
+  function side(half,which){
+    const s=el("div","side "+which);
+    s.appendChild(column(half.r32,"r32","Round of 32"));
+    s.appendChild(column(half.r16,"r16","Round of 16"));
+    s.appendChild(column(half.qf,"qf","Quarterfinal"));
+    s.appendChild(column(half.sf,"sf","Semifinal"));
+    return s;
+  }
+  function center(){
+    const c=el("div","center");
+    c.appendChild(el("div","center-label final-label","Final"));
+    c.appendChild(matchCard(104,"final"));
+    const champ=winner(104);
+    const box=el("div","champion"+(champ?" filled":""));
+    box.innerHTML='<div class="champion-label">🏆 Champion</div><div class="champion-team">'+
+      (champ?'<span class="flag">'+TEAMS[champ].f+'</span><span>'+TEAMS[champ].n+'</span>':'<span style="color:var(--muted);font-weight:400;font-size:13px">—</span>')+
+      '</div>';
+    c.appendChild(box);
+    const tb=el("div","third-block");
+    tb.appendChild(el("div","center-label","Third Place"));
+    tb.appendChild(matchCard(103));
+    c.appendChild(tb);
+    return c;
+  }
+
+  const root=document.getElementById("bracket");
+  function render(){
+    root.innerHTML="";
+    root.appendChild(side(LEFT,"left"));
+    root.appendChild(center());
+    root.appendChild(side(RIGHT,"right"));
+    let n=0; for(const id of ORDER) if(picks[id]!=null) n++;
+    document.getElementById("progress").textContent=n+" / 32 picks";
+    document.getElementById("bracket-name").value=bracketName;
+  }
+
+  document.getElementById("bracket-name").oninput=e=>{bracketName=e.target.value;save();};
+  let tipTimer=null;
+  document.getElementById("share-btn").onclick=()=>{
+    save();
+    const tip=document.getElementById("copy-tip");
+    const done=()=>{
+      tip.classList.add("show");
+      clearTimeout(tipTimer);
+      tipTimer=setTimeout(()=>tip.classList.remove("show"),1800);
+    };
+    if(navigator.clipboard) navigator.clipboard.writeText(location.href).then(done).catch(()=>prompt("Copy this link:",location.href));
+    else prompt("Copy this link:",location.href);
+  };
+  document.getElementById("reset-btn").onclick=()=>{
+    if(Object.keys(picks).length&&!confirm("Clear all picks?"))return;
+    picks={};save();render();
+  };
+
+  load(); render();
+})();
+</script>
+
+</head>
+</html>
