@@ -602,6 +602,11 @@
   }
 
   function save(){
+    // Bracket mode with no picks and no name → keep the URL bare.
+    if(mode==="bracket" && !bracketName && !Object.keys(picks).length){
+      history.replaceState(null,"",location.pathname);
+      return;
+    }
     const q=new URLSearchParams();
     if(mode==="compare"){
       q.set("v","cmp");
