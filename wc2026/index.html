@@ -260,21 +260,27 @@
   .mini .side.left  .col.r16 .m::before, .mini .side.left  .col.qf .m::before, .mini .side.left  .col.sf .m::before { right:100%; border-left:1px solid var(--connector); }
   .mini .side.right .col.r16 .m::before, .mini .side.right .col.qf .m::before, .mini .side.right .col.sf .m::before { left:100%; border-right:1px solid var(--connector); }
   .mini .center { width: var(--col-w); height: var(--bracket-h); position: relative; }
-  .mini .center .m {
-    position:absolute; left:0; right:0; top:calc(50% - var(--match-h)/2);
-    height:calc(var(--match-h)*1.4); font-size:11px; font-weight:700; justify-content:center;
+  .mini .center .champ {
+    --ch: calc(var(--match-h) * 1.4);
+    position:absolute; left:0; right:0; top:calc(50% - var(--ch)/2);
+    height:var(--ch); font-size:11px; font-weight:700; justify-content:center;
   }
-  .mini .center .m::before, .mini .center .m::after {
+  .mini .center .champ::before, .mini .center .champ::after {
     content:""; position:absolute; width:var(--gap); height:1px;
     background:var(--connector); top:calc(50% - 0.5px);
   }
-  .mini .center .m::before { right:100%; }
-  .mini .center .m::after  { left:100%; }
+  .mini .center .champ::before { right:100%; }
+  .mini .center .champ::after  { left:100%; }
+  .mini .center .third {
+    position:absolute; left:0; right:0; bottom:8px;
+  }
   .mini .center .lbl {
-    position:absolute; left:0; right:0; top:calc(50% - var(--match-h)/2 - 14px);
+    position:absolute; left:0; right:0;
     font-size:8px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
     color:var(--muted); text-align:center;
   }
+  .mini .center .lbl.champ-lbl { top:calc(50% - var(--match-h)*0.7 - 13px); }
+  .mini .center .lbl.third-lbl { bottom:calc(8px + var(--match-h) + 3px); }
 
   /* ---- Connectors ---------------------------------------------------- */
   /* Per-round vertical connector heights = bracket-h / (2 × matches in prev round) × 2
@@ -796,18 +802,26 @@
       miniCol(half.sf,'sf',px,src)+
     '</div>';
   }
+  function miniVerdictCell(id,px,src,extraCls){
+    const my=px[id]!=null?winnerOf(id,src):null;
+    const done=RESULTS[id]!=null;
+    let cls='m '+(extraCls||'');
+    if(!my) cls+=' none';
+    else if(!done) cls+=' pending';
+    else cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
+    if(!my) return '<div class="'+cls+'">—</div>';
+    const t=TEAMS[my];
+    return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
+  }
   function miniBracket(px,src){
-    const champ=winnerOf(104,src);
-    const done=RESULTS[104]!=null;
-    let ccls='m'; if(!champ) ccls+=' none';
-    else if(done) ccls+=(champ===winnerOf(104,RESULTS))?' correct':' wrong';
-    else ccls+=' pending';
-    const centerCell=champ
-      ?'<div class="'+ccls+'"><span class="flag">'+TEAMS[champ].f+'</span><span class="nm">'+TEAMS[champ].n+'</span></div>'
-      :'<div class="'+ccls+'">—</div>';
     return '<div class="mini-scroll"><div class="mini">'+
       miniSide(LEFT,'left',px,src)+
-      '<div class="center"><div class="lbl">Champion</div>'+centerCell+'</div>'+
+      '<div class="center">'+
+        '<div class="lbl champ-lbl">Champion</div>'+
+        miniVerdictCell(104,px,src,'champ')+
+        '<div class="lbl third-lbl">3rd Place</div>'+
+        miniVerdictCell(103,px,src,'third')+
+      '</div>'+
       miniSide(RIGHT,'right',px,src)+
     '</div></div>';
   }
