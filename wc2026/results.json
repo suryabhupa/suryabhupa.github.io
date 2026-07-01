@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T18:00Z",
+  "updated": "2026-07-01T20:15Z",
   "matches": {
     "73": {"score": [0, 1], "status": "FT"},
     "74": {"score": [1, 1], "pens": [3, 4], "status": "FT"},
@@ -8,6 +8,6 @@
     "77": {"score": [2, 0], "status": "FT"},
     "78": {"score": [1, 2], "status": "FT"},
     "79": {"score": [2, 0], "status": "FT"},
-    "80": {"score": [1, 1], "status": "LIVE", "minute": "58'"}
+    "80": {"score": [2, 1], "status": "FT"}
   }
 }
