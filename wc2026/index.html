@@ -509,8 +509,9 @@
   // RESULTS[id] = winning slot index (derived from SCORES where status=FT).
   let SCORES = {}, RESULTS = {};
 
+  let ELIMINATED=new Set();   // team codes knocked out per RESULTS
   function deriveResults(){
-    RESULTS={};
+    RESULTS={}; ELIMINATED=new Set();
     for(const [id,r] of Object.entries(SCORES)){
       if(r.status!=="FT") continue;
       let w;
@@ -518,6 +519,12 @@
       else if(r.pens) w=r.pens[0]>r.pens[1]?0:1;
       else continue;
       RESULTS[+id]=w;
+    }
+    // Second pass: collect losers now that RESULTS is complete (needed to
+    // resolve later-round slot teams).
+    for(const id in RESULTS){
+      const l=loserOf(+id,RESULTS);
+      if(l) ELIMINATED.add(l);
     }
   }
   function fetchScores(initial){
@@ -759,7 +766,10 @@
     const live=sc&&sc.status==="LIVE";
     const myWin=picks[id]!=null?winnerOf(id,mySrc()):null;
     const realWin=done?winnerOf(id,RESULTS):null;
-    const verdict=done&&myWin ? (myWin===realWin?"correct":"wrong") : null;
+    const verdict = myWin
+      ? (done ? (myWin===realWin?"correct":"wrong")
+              : (ELIMINATED.has(myWin)?"wrong":null))
+      : null;
 
     const c=el("div","match"+(done?" done":"")+(live?" live":"")+(extraCls?" "+extraCls:""));
     c.appendChild(el("span","match-tag","M"+id));
@@ -893,7 +903,10 @@
     const my=px[id]!=null?winnerOf(id,src):null;
     const done=RESULTS[id]!=null;
     if(my){
-      const cls='m '+(!done?'pending':(my===winnerOf(id,RESULTS)?'correct':'wrong'));
+      let cls;
+      if(done) cls='m '+(my===winnerOf(id,RESULTS)?'correct':'wrong');
+      else if(ELIMINATED.has(my)) cls='m wrong';   // team already knocked out → dead branch
+      else cls='m pending';
       const t=TEAMS[my];
       return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
     }
@@ -927,8 +940,9 @@
     const done=RESULTS[id]!=null;
     let cls='m '+(extraCls||'');
     if(!my) cls+=' none';
-    else if(!done) cls+=' pending';
-    else cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
+    else if(done) cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
+    else if(ELIMINATED.has(my)) cls+=' wrong';
+    else cls+=' pending';
     if(!my) return '<div class="'+cls+'">—</div>';
     const t=TEAMS[my];
     return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
