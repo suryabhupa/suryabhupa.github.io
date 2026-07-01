@@ -189,7 +189,8 @@
   .leaderboard .lb-name { font-weight: 600; }
   .leaderboard .lb-score { font-variant-numeric: tabular-nums; }
   .leaderboard .lb-score b { color: var(--correct); font-size: 15px; }
-  .leaderboard .lb-champ { display: flex; align-items: center; gap: 6px; }
+  .leaderboard .lb-champ { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+  .leaderboard td { vertical-align: middle; }
   .leaderboard .rounds { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .leaderboard .rm {
     background: none; border: none; color: var(--muted); cursor: pointer;
@@ -197,30 +198,83 @@
   }
   .leaderboard .rm:hover { color: var(--wrong); }
 
-  .grid-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
-  .cmp-grid { border-collapse: collapse; min-width: 100%; background: var(--card); font-size: 12px; }
-  .cmp-grid th, .cmp-grid td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  .cmp-grid thead th {
-    position: sticky; top: 0; background: #fdfaf1; font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+  /* ---- Mini brackets (compare view) --------------------------------- */
+  .mini-list { display: flex; flex-direction: column; gap: 24px; }
+  .mini-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 16px 18px;
   }
-  .cmp-grid th:first-child, .cmp-grid td:first-child {
-    position: sticky; left: 0; background: var(--card); border-right: 1px solid var(--line);
-    font-weight: 500;
+  .mini-hdr { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .mini-hdr .nm { font-size: 15px; font-weight: 700; }
+  .mini-hdr .sc { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mini-hdr .sc b { color: var(--correct); font-size: 14px; }
+  .mini-hdr .ch { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .mini-hdr .ch .flag { font-size: 14px; }
+
+  .mini-scroll { overflow-x: auto; }
+  .mini {
+    --match-h: 22px;
+    --bracket-h: 248px;
+    --col-w: 108px;
+    --gap: 20px;
+    --stub: 10px;
+    display: flex; align-items: center; gap: var(--gap);
+    min-width: min-content; margin: 0 auto; width: fit-content;
   }
-  .cmp-grid thead th:first-child { background: #fdfaf1; z-index: 2; }
-  .cmp-grid .round-hdr td {
-    background: #fdfaf1; font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
-    padding: 5px 10px;
+  .mini .side { display: flex; gap: var(--gap); align-items: stretch; }
+  .mini .side.right { flex-direction: row-reverse; }
+  .mini .col {
+    display: flex; flex-direction: column; justify-content: space-around;
+    width: var(--col-w); height: var(--bracket-h); position: relative;
   }
-  .cmp-grid .cell { display: flex; align-items: center; gap: 5px; }
-  .cmp-grid .cell.correct { color: var(--correct); font-weight: 600; }
-  .cmp-grid .cell.wrong { color: var(--wrong); }
-  .cmp-grid .cell.wrong .team-name { text-decoration: line-through; text-decoration-thickness: 1px; }
-  .cmp-grid .cell .flag { font-size: 14px; width: 18px; }
-  .cmp-grid .actual-col { background: #fdfaf1; }
-  .cmp-grid .mtag { color: var(--muted); font-size: 10px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .mini .col.r16 { --vline: calc(var(--bracket-h) / 8); }
+  .mini .col.qf  { --vline: calc(var(--bracket-h) / 4); }
+  .mini .col.sf  { --vline: calc(var(--bracket-h) / 2); }
+  .mini .m {
+    height: var(--match-h); border: 1px solid var(--line); border-radius: 4px;
+    background: var(--card); position: relative;
+    display: flex; align-items: center; gap: 4px; padding: 0 6px;
+    font-size: 10.5px; font-weight: 500;
+  }
+  .mini .m .flag { font-size: 12px; line-height: 1; flex-shrink: 0; }
+  .mini .m .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .mini .m.none { background: transparent; border-style: dashed; color: var(--muted); }
+  .mini .m.pending { background: var(--card); }
+  .mini .m.correct { background: var(--pick-bg); border-color: var(--correct); color: var(--correct); font-weight: 600; }
+  .mini .m.wrong { background: var(--wrong-bg); border-color: var(--wrong); color: var(--wrong); }
+  .mini .m.wrong .nm { text-decoration: line-through; text-decoration-thickness: 1px; }
+  /* connectors (same math as full bracket, thinner lines) */
+  .mini .side .m::after {
+    content:""; position:absolute; width:var(--stub); height:1px;
+    background:var(--connector); top:calc(50% - 0.5px);
+  }
+  .mini .side.left  .m::after { left:100%; }
+  .mini .side.right .m::after { right:100%; }
+  .mini .side .col.r16 .m::before,
+  .mini .side .col.qf  .m::before,
+  .mini .side .col.sf  .m::before {
+    content:""; position:absolute; width:var(--stub); height:var(--vline);
+    top:calc(50% - var(--vline)/2);
+    background:linear-gradient(var(--connector),var(--connector)) center/100% 1px no-repeat;
+  }
+  .mini .side.left  .col.r16 .m::before, .mini .side.left  .col.qf .m::before, .mini .side.left  .col.sf .m::before { right:100%; border-left:1px solid var(--connector); }
+  .mini .side.right .col.r16 .m::before, .mini .side.right .col.qf .m::before, .mini .side.right .col.sf .m::before { left:100%; border-right:1px solid var(--connector); }
+  .mini .center { width: var(--col-w); height: var(--bracket-h); position: relative; }
+  .mini .center .m {
+    position:absolute; left:0; right:0; top:calc(50% - var(--match-h)/2);
+    height:calc(var(--match-h)*1.4); font-size:11px; font-weight:700; justify-content:center;
+  }
+  .mini .center .m::before, .mini .center .m::after {
+    content:""; position:absolute; width:var(--gap); height:1px;
+    background:var(--connector); top:calc(50% - 0.5px);
+  }
+  .mini .center .m::before { right:100%; }
+  .mini .center .m::after  { left:100%; }
+  .mini .center .lbl {
+    position:absolute; left:0; right:0; top:calc(50% - var(--match-h)/2 - 14px);
+    font-size:8px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--muted); text-align:center;
+  }
 
   /* ---- Connectors ---------------------------------------------------- */
   /* Per-round vertical connector heights = bracket-h / (2 × matches in prev round) × 2
@@ -717,11 +771,47 @@
     const champ=winnerOf(104,src);
     return {correct,total,perRound,champ};
   }
-  function teamCell(code,verdict){
-    if(!code) return '<span class="cell"><span style="color:var(--muted)">—</span></span>';
-    const t=TEAMS[code];
-    return '<span class="cell '+(verdict||'')+'"><span class="flag">'+t.f+'</span><span class="team-name">'+t.n+'</span></span>';
+
+  // Render one person's bracket as a compact mini-bracket. Each cell shows
+  // that person's predicted winner, colored by verdict.
+  function miniCell(id,px,src){
+    const my=px[id]!=null?winnerOf(id,src):null;
+    const done=RESULTS[id]!=null;
+    let cls='m';
+    if(!my) cls+=' none';
+    else if(!done) cls+=' pending';
+    else cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
+    if(!my) return '<div class="'+cls+'" title="M'+id+' — no pick">·</div>';
+    const t=TEAMS[my];
+    return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
   }
+  function miniCol(ids,cls,px,src){
+    return '<div class="col '+cls+'">'+ids.map(id=>miniCell(id,px,src)).join('')+'</div>';
+  }
+  function miniSide(half,which,px,src){
+    return '<div class="side '+which+'">'+
+      miniCol(half.r32,'r32',px,src)+
+      miniCol(half.r16,'r16',px,src)+
+      miniCol(half.qf,'qf',px,src)+
+      miniCol(half.sf,'sf',px,src)+
+    '</div>';
+  }
+  function miniBracket(px,src){
+    const champ=winnerOf(104,src);
+    const done=RESULTS[104]!=null;
+    let ccls='m'; if(!champ) ccls+=' none';
+    else if(done) ccls+=(champ===winnerOf(104,RESULTS))?' correct':' wrong';
+    else ccls+=' pending';
+    const centerCell=champ
+      ?'<div class="'+ccls+'"><span class="flag">'+TEAMS[champ].f+'</span><span class="nm">'+TEAMS[champ].n+'</span></div>'
+      :'<div class="'+ccls+'">—</div>';
+    return '<div class="mini-scroll"><div class="mini">'+
+      miniSide(LEFT,'left',px,src)+
+      '<div class="center"><div class="lbl">Champion</div>'+centerCell+'</div>'+
+      miniSide(RIGHT,'right',px,src)+
+    '</div></div>';
+  }
+
   function renderCompare(){
     const body=document.getElementById("compare-body");
     if(!cmpEntries.length){
@@ -745,35 +835,25 @@
       html+='<tr><td class="rank">'+(i+1)+'</td>'+
         '<td class="lb-name">'+escapeHtml(r.name)+'</td>'+
         '<td class="lb-score"><b>'+r.correct+'</b> / '+r.total+'</td>'+
-        '<td class="lb-champ">'+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span>'+TEAMS[r.champ].n:'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td><span class="lb-champ">'+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span>'+TEAMS[r.champ].n:'<span style="color:var(--muted)">—</span>')+'</span></td>'+
         '<td class="rounds">'+rounds+'</td>'+
         '<td><button class="rm" data-rm="'+r.idx+'" title="Remove">×</button></td></tr>';
     });
     html+='</tbody></table>';
 
-    // ---- Match-by-match grid ----
-    html+='<div class="grid-scroll"><table class="cmp-grid"><thead><tr><th>Match</th><th>Actual</th>';
-    rows.forEach(r=>html+='<th>'+escapeHtml(r.name)+'</th>');
-    html+='</tr></thead><tbody>';
-    for(const [rd,ids] of Object.entries(ROUND_IDS)){
-      html+='<tr class="round-hdr"><td colspan="'+(rows.length+2)+'">'+rd+'</td></tr>';
-      for(const id of ids){
-        const disp=slotTeams(id,displaySrc());
-        const done=RESULTS[id]!=null;
-        const actual=done?winnerOf(id,RESULTS):null;
-        const label='<span class="mtag">M'+id+'</span>'+
-          (disp[0]?TEAMS[disp[0]].f:'')+' '+(disp[0]?TEAMS[disp[0]].n:'?')+' <span style="color:var(--muted)">v</span> '+
-          (disp[1]?TEAMS[disp[1]].f:'')+' '+(disp[1]?TEAMS[disp[1]].n:'?');
-        html+='<tr><td>'+label+'</td><td class="actual-col">'+teamCell(actual)+'</td>';
-        rows.forEach(r=>{
-          const my=r.px[id]!=null?winnerOf(id,r.src):null;
-          const v=done&&my?(my===actual?'correct':'wrong'):null;
-          html+='<td>'+teamCell(my,v)+'</td>';
-        });
-        html+='</tr>';
-      }
-    }
-    html+='</tbody></table></div>';
+    // ---- Mini bracket per person ----
+    html+='<div class="mini-list">';
+    rows.forEach((r,i)=>{
+      html+='<div class="mini-card">'+
+        '<div class="mini-hdr">'+
+          '<span class="nm">#'+(i+1)+' · '+escapeHtml(r.name)+'</span>'+
+          '<span class="sc"><b>'+r.correct+'</b> / '+r.total+' correct</span>'+
+          '<span class="ch">Champion: '+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span> '+TEAMS[r.champ].n:'—')+'</span>'+
+        '</div>'+
+        miniBracket(r.px,r.src)+
+      '</div>';
+    });
+    html+='</div>';
     body.innerHTML=html;
     body.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{
       cmpEntries.splice(+b.dataset.rm,1); save(); renderCompare();
