@@ -187,8 +187,14 @@
   }
   .add-row input:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
   .cmp-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
-  .pool-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 6px; }
-  .pool-sub { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+  .pool-hdr { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .pool-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 2px; }
+  .pool-sub { font-size: 12px; color: var(--muted); }
+  .pool-hdr .link-btn {
+    margin-left: auto; background: none; border: none; color: var(--muted);
+    font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 4px 0;
+  }
+  .pool-hdr .link-btn:hover { color: var(--text); }
 
   .leaderboard {
     width: 100%; border-collapse: collapse; background: var(--card);
@@ -940,16 +946,27 @@
     '</div></div>';
   }
 
+  function switchToCustom(){
+    cmpFromPool=false; cmpEntries=[]; save(); renderCompare();
+  }
+  function switchToPool(){
+    cmpFromPool=true; cmpEntries=[]; save(); renderCompare();
+    fetchPool().then(renderCompare);
+  }
   function renderCompare(){
     const body=document.getElementById("compare-body");
-    // Show/hide the add-row: hidden when displaying the canonical pool.
     document.querySelector('.add-row').style.display=cmpFromPool?"none":"";
     if(!cmpEntries.length){
-      if(cmpFromPool){
-        body.innerHTML='<div class="cmp-empty">Loading pool…</div>';
-      } else {
-        body.innerHTML='<div class="cmp-empty">Paste bracket links above to compare scores and picks.</div>';
-      }
+      const hdr=cmpFromPool
+        ? '<div class="pool-hdr"><div><h2 class="pool-title">'+escapeHtml(POOL_TITLE)+'</h2>'+
+          '<div class="pool-sub">Loading pool…</div></div>'+
+          '<button class="link-btn" id="go-custom">build a custom comparison →</button></div>'
+        : '<div class="pool-hdr"><div><h2 class="pool-title">Custom comparison</h2>'+
+          '<div class="pool-sub">Paste bracket links above to compare</div></div>'+
+          '<button class="link-btn" id="go-pool">← back to '+escapeHtml(POOL_TITLE)+'</button></div>'+
+          '<div class="cmp-empty">No brackets yet — paste a link above.</div>';
+      body.innerHTML=hdr;
+      wireCompareButtons(body);
       return;
     }
     // Score every entry
@@ -962,8 +979,19 @@
     // ---- Leaderboard ----
     let html='';
     if(cmpFromPool){
-      html+='<h2 class="pool-title">'+escapeHtml(POOL_TITLE)+'</h2>'+
-            '<div class="pool-sub">'+cmpEntries.length+' brackets · click a row to view it in the editor</div>';
+      html+='<div class="pool-hdr"><div>'+
+              '<h2 class="pool-title">'+escapeHtml(POOL_TITLE)+'</h2>'+
+              '<div class="pool-sub">'+cmpEntries.length+' brackets · click a row to view it in the editor</div>'+
+            '</div>'+
+            '<button class="link-btn" id="go-custom">build a custom comparison →</button>'+
+            '</div>';
+    } else {
+      html+='<div class="pool-hdr"><div>'+
+              '<h2 class="pool-title">Custom comparison</h2>'+
+              '<div class="pool-sub">Paste bracket links to compare — this list is encoded in the URL</div>'+
+            '</div>'+
+            '<button class="link-btn" id="go-pool">← back to '+escapeHtml(POOL_TITLE)+'</button>'+
+            '</div>';
     }
     html+='<table class="leaderboard"><thead><tr>'+
       '<th class="rank">#</th><th>Name</th><th>Score</th><th>Champion Pick</th>'+
@@ -994,6 +1022,9 @@
     });
     html+='</div>';
     body.innerHTML=html;
+    wireCompareButtons(body);
+  }
+  function wireCompareButtons(body){
     body.querySelectorAll('.rm').forEach(b=>b.onclick=ev=>{
       ev.stopPropagation();
       cmpEntries.splice(+b.dataset.rm,1); save(); renderCompare();
@@ -1001,6 +1032,8 @@
     body.querySelectorAll('.leaderboard tbody tr').forEach(tr=>{
       tr.onclick=()=>editEntry(+tr.dataset.edit);
     });
+    const gc=body.querySelector('#go-custom'); if(gc) gc.onclick=switchToCustom;
+    const gp=body.querySelector('#go-pool');   if(gp) gp.onclick=switchToPool;
   }
   function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
