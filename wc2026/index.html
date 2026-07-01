@@ -149,6 +149,79 @@
   }
   .score b { color: var(--correct); }
 
+  /* ---- Tabs ---------------------------------------------------------- */
+  .tabs { display: flex; gap: 4px; margin-right: 8px; }
+  .tab {
+    padding: 6px 14px; border: 1px solid var(--line); background: var(--card);
+    border-radius: 6px; font: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; color: var(--muted);
+  }
+  .tab:hover { border-color: var(--connector); }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---- Compare view -------------------------------------------------- */
+  .compare-wrap { padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .add-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .add-row input {
+    flex: 1; min-width: 300px; background: var(--card); border: 1px solid var(--line);
+    color: var(--text); padding: 9px 12px; border-radius: 6px; font: inherit; font-size: 13px;
+  }
+  .add-row input:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
+  .cmp-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
+
+  .leaderboard {
+    width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .leaderboard th, .leaderboard td {
+    padding: 10px 12px; text-align: left; font-size: 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  .leaderboard th {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); background: #fdfaf1;
+  }
+  .leaderboard tr:last-child td { border-bottom: none; }
+  .leaderboard .rank { width: 32px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .leaderboard .lb-name { font-weight: 600; }
+  .leaderboard .lb-score { font-variant-numeric: tabular-nums; }
+  .leaderboard .lb-score b { color: var(--correct); font-size: 15px; }
+  .leaderboard .lb-champ { display: flex; align-items: center; gap: 6px; }
+  .leaderboard .rounds { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .leaderboard .rm {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 16px; padding: 2px 6px; line-height: 1;
+  }
+  .leaderboard .rm:hover { color: var(--wrong); }
+
+  .grid-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .cmp-grid { border-collapse: collapse; min-width: 100%; background: var(--card); font-size: 12px; }
+  .cmp-grid th, .cmp-grid td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .cmp-grid thead th {
+    position: sticky; top: 0; background: #fdfaf1; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+  }
+  .cmp-grid th:first-child, .cmp-grid td:first-child {
+    position: sticky; left: 0; background: var(--card); border-right: 1px solid var(--line);
+    font-weight: 500;
+  }
+  .cmp-grid thead th:first-child { background: #fdfaf1; z-index: 2; }
+  .cmp-grid .round-hdr td {
+    background: #fdfaf1; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+    padding: 5px 10px;
+  }
+  .cmp-grid .cell { display: flex; align-items: center; gap: 5px; }
+  .cmp-grid .cell.correct { color: var(--correct); font-weight: 600; }
+  .cmp-grid .cell.wrong { color: var(--wrong); }
+  .cmp-grid .cell.wrong .team-name { text-decoration: line-through; text-decoration-thickness: 1px; }
+  .cmp-grid .cell .flag { font-size: 14px; width: 18px; }
+  .cmp-grid .actual-col { background: #fdfaf1; }
+  .cmp-grid .mtag { color: var(--muted); font-size: 10px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+
   /* ---- Connectors ---------------------------------------------------- */
   /* Per-round vertical connector heights = bracket-h / (2 × matches in prev round) × 2
      i.e. distance between adjacent prev-round match centers.               */
@@ -228,11 +301,15 @@
 </style>
 
 <header>
+  <div class="tabs">
+    <button class="tab active" data-view="bracket" id="tab-bracket">My Bracket</button>
+    <button class="tab" data-view="compare" id="tab-compare">Compare</button>
+  </div>
   <div>
     <h1>FIFA World Cup 2026 · Knockout Predictor</h1>
-    <div class="sub">Click a team to advance them. Picks are saved in the URL — copy the link to share.</div>
+    <div class="sub" id="subtitle">Click a team to advance them. Picks are saved in the URL — copy the link to share.</div>
   </div>
-  <div class="controls">
+  <div class="controls" id="bracket-controls">
     <span class="score" id="score" title="Correct predictions on completed matches">Score <b>0</b>/0</span>
     <span class="progress" id="progress">0 / 32</span>
     <input type="text" id="bracket-name" placeholder="Bracket name" maxlength="40">
@@ -242,10 +319,29 @@
     </span>
     <button id="reset-btn">Reset</button>
   </div>
+  <div class="controls" id="compare-controls" style="display:none">
+    <span class="share-wrap">
+      <button class="primary" id="share-cmp-btn">Copy comparison link</button>
+      <span class="copy-tip" id="copy-tip-cmp">Link copied!</span>
+    </span>
+  </div>
 </header>
 
-<div class="bracket-scroll">
-  <div class="bracket" id="bracket"></div>
+<div class="view active" id="view-bracket">
+  <div class="bracket-scroll">
+    <div class="bracket" id="bracket"></div>
+  </div>
+</div>
+
+<div class="view" id="view-compare">
+  <div class="compare-wrap">
+    <div class="add-row">
+      <input type="text" id="add-url" placeholder="Paste a bracket link (…/wc2026/#n=Name&p=xxxx) and press Enter">
+      <button id="add-btn">Add bracket</button>
+      <button id="add-mine-btn" title="Add the bracket from the My Bracket tab">Add mine</button>
+    </div>
+    <div id="compare-body"></div>
+  </div>
 </div>
 
 <script>
@@ -389,33 +485,85 @@
     return B64U.enc(bytes);
   }
   function decodePicks(s){
-    if(!s) return;
+    const out={};
+    if(!s) return out;
     if(/^[01-]+$/.test(s)&&s.length>12){        // legacy long format
       for(let i=0;i<ORDER.length&&i<s.length;i++){
-        if(s[i]==='0')picks[ORDER[i]]=0; else if(s[i]==='1')picks[ORDER[i]]=1;
+        if(s[i]==='0')out[ORDER[i]]=0; else if(s[i]==='1')out[ORDER[i]]=1;
       }
-      return;
+      return out;
     }
     try{
       const bytes=B64U.dec(s);
       for(let i=0;i<ORDER.length;i++){
         const v=(bytes[i>>2]>>((i&3)*2))&3;
-        if(v===1)picks[ORDER[i]]=0; else if(v===2)picks[ORDER[i]]=1;
+        if(v===1)out[ORDER[i]]=0; else if(v===2)out[ORDER[i]]=1;
       }
     }catch(e){}
+    return out;
   }
+  // ---- Compare state ---------------------------------------------------
+  // entries: [{name, code}] — code is the compact base64url form
+  let cmpEntries=[];
+  let mode="bracket";
+
+  function parseBracketRef(input){
+    // Accepts: full URL, "#n=..&p=..", "n=..&p=..", or a bare code
+    let s=input.trim();
+    if(!s) return null;
+    const hashIdx=s.indexOf('#');
+    if(hashIdx>=0) s=s.slice(hashIdx+1);
+    if(s.includes('=')){
+      const q=new URLSearchParams(s);
+      const p=q.get('p'); if(!p) return null;
+      return {name:(q.get('n')||'').slice(0,40)||'(unnamed)', code:normalizeCode(p)};
+    }
+    return {name:'(unnamed)', code:normalizeCode(s)};
+  }
+  function normalizeCode(p){
+    // Convert legacy long form to compact for storage
+    if(/^[01-]+$/.test(p)&&p.length>12){
+      const tmp=decodePicks(p);
+      const bytes=new Uint8Array(8);
+      for(let i=0;i<ORDER.length;i++){
+        const v=tmp[ORDER[i]]===0?1:tmp[ORDER[i]]===1?2:0;
+        bytes[i>>2]|=v<<((i&3)*2);
+      }
+      return B64U.enc(bytes);
+    }
+    return p;
+  }
+
   function save(){
     const q=new URLSearchParams();
-    if(bracketName) q.set("n",bracketName);
-    q.set("p",encodePicks());
+    if(mode==="compare"){
+      q.set("v","cmp");
+      if(cmpEntries.length){
+        q.set("b",cmpEntries.map(e=>encodeURIComponent(e.name)+"~"+e.code).join("!"));
+      }
+    } else {
+      if(bracketName) q.set("n",bracketName);
+      q.set("p",encodePicks());
+    }
     history.replaceState(null,"","#"+q.toString());
   }
   function load(){
     if(!location.hash) return;
     try{
       const q=new URLSearchParams(location.hash.slice(1));
-      bracketName=q.get("n")||"";
-      decodePicks(q.get("p"));
+      if(q.get("v")==="cmp"){
+        mode="compare";
+        const b=q.get("b");
+        if(b){
+          cmpEntries=b.split("!").map(part=>{
+            const i=part.indexOf("~");
+            return i<0?null:{name:decodeURIComponent(part.slice(0,i))||'(unnamed)',code:part.slice(i+1)};
+          }).filter(Boolean);
+        }
+      } else {
+        bracketName=q.get("n")||"";
+        picks=decodePicks(q.get("p"));
+      }
     }catch(e){}
   }
 
@@ -543,7 +691,141 @@
     picks={};save();render();
   };
 
-  load(); render();
+  // ---- Compare view --------------------------------------------------
+  const ROUND_IDS={
+    "R32":[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88],
+    "R16":[89,90,91,92,93,94,95,96],
+    "QF":[97,98,99,100],
+    "SF":[101,102],
+    "3rd":[103],
+    "Final":[104]
+  };
+  function scoreBracket(px){
+    // px = that person's picks object
+    const src=Object.assign({},RESULTS,px);
+    const perRound={}; let total=0,correct=0;
+    for(const [rd,ids] of Object.entries(ROUND_IDS)){
+      let rc=0,rt=0;
+      for(const id of ids){
+        if(RESULTS[id]==null||px[id]==null) continue;
+        const my=winnerOf(id,src); if(!my) continue;
+        rt++; total++;
+        if(my===winnerOf(id,RESULTS)){rc++;correct++;}
+      }
+      perRound[rd]={c:rc,t:rt};
+    }
+    const champ=winnerOf(104,src);
+    return {correct,total,perRound,champ};
+  }
+  function teamCell(code,verdict){
+    if(!code) return '<span class="cell"><span style="color:var(--muted)">—</span></span>';
+    const t=TEAMS[code];
+    return '<span class="cell '+(verdict||'')+'"><span class="flag">'+t.f+'</span><span class="team-name">'+t.n+'</span></span>';
+  }
+  function renderCompare(){
+    const body=document.getElementById("compare-body");
+    if(!cmpEntries.length){
+      body.innerHTML='<div class="cmp-empty">Paste bracket links above to compare scores and picks.</div>';
+      return;
+    }
+    // Score every entry
+    const rows=cmpEntries.map((e,idx)=>{
+      const px=decodePicks(e.code);
+      const s=scoreBracket(px);
+      return {idx,name:e.name,code:e.code,px,src:Object.assign({},RESULTS,px),...s};
+    }).sort((a,b)=>b.correct-a.correct||b.total-a.total);
+
+    // ---- Leaderboard ----
+    let html='<table class="leaderboard"><thead><tr>'+
+      '<th class="rank">#</th><th>Name</th><th>Score</th><th>Champion Pick</th>'+
+      '<th>By round</th><th></th></tr></thead><tbody>';
+    rows.forEach((r,i)=>{
+      const rounds=Object.entries(r.perRound).filter(([,v])=>v.t>0)
+        .map(([k,v])=>k+' '+v.c+'/'+v.t).join(' · ')||'—';
+      html+='<tr><td class="rank">'+(i+1)+'</td>'+
+        '<td class="lb-name">'+escapeHtml(r.name)+'</td>'+
+        '<td class="lb-score"><b>'+r.correct+'</b> / '+r.total+'</td>'+
+        '<td class="lb-champ">'+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span>'+TEAMS[r.champ].n:'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td class="rounds">'+rounds+'</td>'+
+        '<td><button class="rm" data-rm="'+r.idx+'" title="Remove">×</button></td></tr>';
+    });
+    html+='</tbody></table>';
+
+    // ---- Match-by-match grid ----
+    html+='<div class="grid-scroll"><table class="cmp-grid"><thead><tr><th>Match</th><th>Actual</th>';
+    rows.forEach(r=>html+='<th>'+escapeHtml(r.name)+'</th>');
+    html+='</tr></thead><tbody>';
+    for(const [rd,ids] of Object.entries(ROUND_IDS)){
+      html+='<tr class="round-hdr"><td colspan="'+(rows.length+2)+'">'+rd+'</td></tr>';
+      for(const id of ids){
+        const disp=slotTeams(id,displaySrc());
+        const done=RESULTS[id]!=null;
+        const actual=done?winnerOf(id,RESULTS):null;
+        const label='<span class="mtag">M'+id+'</span>'+
+          (disp[0]?TEAMS[disp[0]].f:'')+' '+(disp[0]?TEAMS[disp[0]].n:'?')+' <span style="color:var(--muted)">v</span> '+
+          (disp[1]?TEAMS[disp[1]].f:'')+' '+(disp[1]?TEAMS[disp[1]].n:'?');
+        html+='<tr><td>'+label+'</td><td class="actual-col">'+teamCell(actual)+'</td>';
+        rows.forEach(r=>{
+          const my=r.px[id]!=null?winnerOf(id,r.src):null;
+          const v=done&&my?(my===actual?'correct':'wrong'):null;
+          html+='<td>'+teamCell(my,v)+'</td>';
+        });
+        html+='</tr>';
+      }
+    }
+    html+='</tbody></table></div>';
+    body.innerHTML=html;
+    body.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{
+      cmpEntries.splice(+b.dataset.rm,1); save(); renderCompare();
+    });
+  }
+  function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+  // ---- Tab switching --------------------------------------------------
+  function setMode(m){
+    mode=m;
+    document.getElementById("tab-bracket").classList.toggle("active",m==="bracket");
+    document.getElementById("tab-compare").classList.toggle("active",m==="compare");
+    document.getElementById("view-bracket").classList.toggle("active",m==="bracket");
+    document.getElementById("view-compare").classList.toggle("active",m==="compare");
+    document.getElementById("bracket-controls").style.display=m==="bracket"?"":"none";
+    document.getElementById("compare-controls").style.display=m==="compare"?"":"none";
+    document.getElementById("subtitle").textContent=m==="compare"
+      ?"Paste bracket links to rank them and compare picks match-by-match."
+      :"Click a team to advance them. Picks are saved in the URL — copy the link to share.";
+    save();
+    if(m==="compare") renderCompare(); else render();
+  }
+  document.getElementById("tab-bracket").onclick=()=>setMode("bracket");
+  document.getElementById("tab-compare").onclick=()=>setMode("compare");
+
+  function addEntry(ref){
+    if(!ref)return;
+    if(cmpEntries.length>=12){alert("Max 12 brackets");return;}
+    cmpEntries.push(ref); save(); renderCompare();
+  }
+  document.getElementById("add-btn").onclick=()=>{
+    const inp=document.getElementById("add-url");
+    const ref=parseBracketRef(inp.value);
+    if(ref){addEntry(ref);inp.value="";}
+  };
+  document.getElementById("add-url").onkeydown=e=>{
+    if(e.key==="Enter"){document.getElementById("add-btn").click();}
+  };
+  document.getElementById("add-mine-btn").onclick=()=>{
+    if(!Object.keys(picks).length){alert("Your bracket is empty — make some picks on the My Bracket tab first.");return;}
+    addEntry({name:bracketName||"Me",code:encodePicks()});
+  };
+  document.getElementById("share-cmp-btn").onclick=()=>{
+    save();
+    const tip=document.getElementById("copy-tip-cmp");
+    const done=()=>{tip.classList.add("show");setTimeout(()=>tip.classList.remove("show"),1800);};
+    if(navigator.clipboard) navigator.clipboard.writeText(location.href).then(done).catch(()=>prompt("Copy this link:",location.href));
+    else prompt("Copy this link:",location.href);
+  };
+
+  load();
+  setMode(mode);
 })();
 </script>
 </body>
