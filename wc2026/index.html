@@ -610,7 +610,35 @@
   // ---- Compare state ---------------------------------------------------
   // entries: [{name, code}] — code is the compact base64url form
   let cmpEntries=[];
+  let cmpFromPool=false;   // true when entries were loaded from pool.json (read-only)
   let mode="bracket";
+  // Set POOL_SOURCE to a Google Sheet gviz URL to load from a sheet instead:
+  //   https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:json&sheet=Sheet1
+  // Sheet columns: A=name, B=code. Sheet must be "anyone with link can view".
+  const POOL_SOURCE="pool.json";
+
+  function fetchPool(){
+    return fetch(POOL_SOURCE+(POOL_SOURCE.includes('?')?'&':'?')+"t="+Date.now(),{cache:"no-store"})
+      .then(r=>r.text())
+      .then(txt=>{
+        let entries;
+        if(POOL_SOURCE.includes('gviz')){
+          // Google gviz wraps JSON in a JS callback; strip it.
+          const m=txt.match(/setResponse\((.*)\);?\s*$/s);
+          const data=JSON.parse(m[1]);
+          entries=data.table.rows.map(r=>({
+            name:String(r.c[0]?.v||'').trim(),
+            code:String(r.c[1]?.v||'').trim()
+          })).filter(e=>e.name&&e.code);
+        } else {
+          const data=JSON.parse(txt);
+          entries=data.entries||[];
+        }
+        cmpEntries=entries.map(e=>({name:e.name,code:normalizeCode(e.code)}));
+        cmpFromPool=true;
+      })
+      .catch(e=>{console.warn("pool load failed",e);});
+  }
 
   function parseBracketRef(input){
     // Accepts: full URL, "#n=..&p=..", "n=..&p=..", or a bare code
@@ -648,7 +676,9 @@
     const q=new URLSearchParams();
     if(mode==="compare"){
       q.set("v","cmp");
-      if(cmpEntries.length){
+      // Only encode entries into the URL for ad-hoc comparisons; the canonical
+      // pool loads from pool.json and keeps the URL short.
+      if(cmpEntries.length && !cmpFromPool){
         q.set("b",cmpEntries.map(e=>encodeURIComponent(e.name)+"~"+e.code).join("!"));
       }
     } else {
@@ -669,7 +699,9 @@
             const i=part.indexOf("~");
             return i<0?null:{name:decodeURIComponent(part.slice(0,i))||'(unnamed)',code:part.slice(i+1)};
           }).filter(Boolean);
+          cmpFromPool=false;
         }
+        // If no &b=, pool.json is loaded lazily when the tab renders.
       } else {
         bracketName=q.get("n")||"";
         picks=decodePicks(q.get("p"));
@@ -900,8 +932,14 @@
 
   function renderCompare(){
     const body=document.getElementById("compare-body");
+    // Show/hide the add-row: hidden when displaying the canonical pool.
+    document.querySelector('.add-row').style.display=cmpFromPool?"none":"";
     if(!cmpEntries.length){
-      body.innerHTML='<div class="cmp-empty">Paste bracket links above to compare scores and picks.</div>';
+      if(cmpFromPool){
+        body.innerHTML='<div class="cmp-empty">Loading pool…</div>';
+      } else {
+        body.innerHTML='<div class="cmp-empty">Paste bracket links above to compare scores and picks.</div>';
+      }
       return;
     }
     // Score every entry
@@ -914,7 +952,7 @@
     // ---- Leaderboard ----
     let html='<table class="leaderboard"><thead><tr>'+
       '<th class="rank">#</th><th>Name</th><th>Score</th><th>Champion Pick</th>'+
-      '<th>By round</th><th></th></tr></thead><tbody>';
+      '<th>By round</th>'+(cmpFromPool?'':'<th></th>')+'</tr></thead><tbody>';
     rows.forEach((r,i)=>{
       const rounds=Object.entries(r.perRound).filter(([,v])=>v.t>0)
         .map(([k,v])=>k+' '+v.c+'/'+v.t).join(' · ')||'—';
@@ -923,7 +961,7 @@
         '<td class="lb-score"><b>'+r.correct+'</b> / '+r.total+'</td>'+
         '<td><span class="lb-champ">'+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span>'+TEAMS[r.champ].n:'<span style="color:var(--muted)">—</span>')+'</span></td>'+
         '<td class="rounds">'+rounds+'</td>'+
-        '<td><button class="rm" data-rm="'+r.idx+'" title="Remove">×</button></td></tr>';
+        (cmpFromPool?'':'<td><button class="rm" data-rm="'+r.idx+'" title="Remove">×</button></td>')+'</tr>';
     });
     html+='</tbody></table>';
 
@@ -964,7 +1002,18 @@
       ?"Paste bracket links to rank them and compare picks match-by-match."
       :"Click a team to advance them. Picks are saved in the URL — copy the link to share.";
     save();
-    if(m==="compare") renderCompare(); else render();
+    if(m==="compare"){
+      // No URL-supplied entries → load the canonical pool.
+      if(!cmpEntries.length && !cmpFromPool){
+        cmpFromPool=true;
+        renderCompare();               // shows "Loading pool…"
+        fetchPool().then(renderCompare);
+      } else {
+        renderCompare();
+      }
+    } else {
+      render();
+    }
   }
   document.getElementById("tab-bracket").onclick=()=>setMode("bracket");
   document.getElementById("tab-compare").onclick=()=>setMode("compare");
