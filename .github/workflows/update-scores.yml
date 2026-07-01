@@ -1,0 +1,36 @@
+name: Update live scores
+
+on:
+  schedule:
+    # Every 5 minutes during the knockout window (Jun 28 – Jul 19).
+    # GitHub cron is UTC; matches run roughly 16:00–05:00 UTC.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-scores
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch scores
+        run: python3 wc2026/update_scores.py
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet wc2026/results.json; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name  "suryabhupa"
+          git config user.email "6156634+suryabhupa@users.noreply.github.com"
+          git add wc2026/results.json
+          git commit -m "Auto-update scores"
+          git push
