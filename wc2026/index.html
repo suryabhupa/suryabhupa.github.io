@@ -489,6 +489,13 @@
 
   let picks = {}, bracketName = "";
 
+  // Strip tracking params (fbclid, utm_*, gclid, igshid, …) that Messenger/etc.
+  // append. This page uses only the #hash for state, so any ?query is noise.
+  if(location.search){
+    history.replaceState(null,"",location.pathname+location.hash);
+  }
+  const cleanUrl=()=>location.origin+location.pathname+location.hash;
+
   // Generic resolver: `src` is an object mapping matchId → chosen slot index.
   // Passing `picks` gives the user's predicted bracket; `RESULTS` gives reality;
   // a merged {...picks, ...RESULTS} gives the display bracket (reality where known,
@@ -743,8 +750,9 @@
       clearTimeout(tipTimer);
       tipTimer=setTimeout(()=>tip.classList.remove("show"),1800);
     };
-    if(navigator.clipboard) navigator.clipboard.writeText(location.href).then(done).catch(()=>prompt("Copy this link:",location.href));
-    else prompt("Copy this link:",location.href);
+    const url=cleanUrl();
+    if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>prompt("Copy this link:",url));
+    else prompt("Copy this link:",url);
   };
   document.getElementById("reset-btn").onclick=()=>{
     if(Object.keys(picks).length&&!confirm("Clear all picks?"))return;
@@ -914,8 +922,9 @@
     save();
     const tip=document.getElementById("copy-tip-cmp");
     const done=()=>{tip.classList.add("show");setTimeout(()=>tip.classList.remove("show"),1800);};
-    if(navigator.clipboard) navigator.clipboard.writeText(location.href).then(done).catch(()=>prompt("Copy this link:",location.href));
-    else prompt("Copy this link:",location.href);
+    const url=cleanUrl();
+    if(navigator.clipboard) navigator.clipboard.writeText(url).then(done).catch(()=>prompt("Copy this link:",url));
+    else prompt("Copy this link:",url);
   };
 
   load();
