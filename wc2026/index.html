@@ -187,6 +187,8 @@
   }
   .add-row input:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
   .cmp-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
+  .pool-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 6px; }
+  .pool-sub { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
 
   .leaderboard {
     width: 100%; border-collapse: collapse; background: var(--card);
@@ -612,32 +614,40 @@
   let cmpEntries=[];
   let cmpFromPool=false;   // true when entries were loaded from pool.json (read-only)
   let mode="bracket";
-  // Set POOL_SOURCE to a Google Sheet gviz URL to load from a sheet instead:
-  //   https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:json&sheet=Sheet1
+  const POOL_TITLE="bach to the future";
+  // Pool sources tried in order. First one that returns ≥1 entry wins.
   // Sheet columns: A=name, B=code. Sheet must be "anyone with link can view".
-  const POOL_SOURCE="pool.json";
+  const POOL_SOURCES=[
+    "https://docs.google.com/spreadsheets/d/11WoRBq-NoBLqTZqpcgaw-BIAd8MyWNOjTyTnxdtCKz0/gviz/tq?tqx=out:json&gid=0",
+    "pool.json"
+  ];
 
-  function fetchPool(){
-    return fetch(POOL_SOURCE+(POOL_SOURCE.includes('?')?'&':'?')+"t="+Date.now(),{cache:"no-store"})
-      .then(r=>r.text())
-      .then(txt=>{
-        let entries;
-        if(POOL_SOURCE.includes('gviz')){
-          // Google gviz wraps JSON in a JS callback; strip it.
-          const m=txt.match(/setResponse\((.*)\);?\s*$/s);
-          const data=JSON.parse(m[1]);
-          entries=data.table.rows.map(r=>({
-            name:String(r.c[0]?.v||'').trim(),
-            code:String(r.c[1]?.v||'').trim()
-          })).filter(e=>e.name&&e.code);
-        } else {
-          const data=JSON.parse(txt);
-          entries=data.entries||[];
+  function parsePool(url,txt){
+    if(url.includes('gviz')){
+      const m=txt.match(/setResponse\((.*)\);?\s*$/s);
+      if(!m) return [];
+      const data=JSON.parse(m[1]);
+      return (data.table.rows||[]).map(r=>({
+        name:String(r.c?.[0]?.v||'').trim(),
+        code:String(r.c?.[1]?.v||'').trim()
+      })).filter(e=>e.name&&e.code);
+    }
+    return (JSON.parse(txt).entries||[]);
+  }
+  async function fetchPool(){
+    for(const url of POOL_SOURCES){
+      try{
+        const sep=url.includes('?')?'&':'?';
+        const txt=await fetch(url+sep+"t="+Date.now(),{cache:"no-store"}).then(r=>r.text());
+        const entries=parsePool(url,txt);
+        if(entries.length){
+          cmpEntries=entries.map(e=>({name:e.name,code:normalizeCode(e.code)}));
+          cmpFromPool=true;
+          return;
         }
-        cmpEntries=entries.map(e=>({name:e.name,code:normalizeCode(e.code)}));
-        cmpFromPool=true;
-      })
-      .catch(e=>{console.warn("pool load failed",e);});
+      }catch(e){console.warn("pool source failed:",url,e);}
+    }
+    cmpFromPool=true; // still mark as pool mode (read-only) even if empty
   }
 
   function parseBracketRef(input){
@@ -950,7 +960,12 @@
     }).sort((a,b)=>b.correct-a.correct||b.total-a.total);
 
     // ---- Leaderboard ----
-    let html='<table class="leaderboard"><thead><tr>'+
+    let html='';
+    if(cmpFromPool){
+      html+='<h2 class="pool-title">'+escapeHtml(POOL_TITLE)+'</h2>'+
+            '<div class="pool-sub">'+cmpEntries.length+' brackets · click a row to view it in the editor</div>';
+    }
+    html+='<table class="leaderboard"><thead><tr>'+
       '<th class="rank">#</th><th>Name</th><th>Score</th><th>Champion Pick</th>'+
       '<th>By round</th>'+(cmpFromPool?'':'<th></th>')+'</tr></thead><tbody>';
     rows.forEach((r,i)=>{
