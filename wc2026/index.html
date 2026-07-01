@@ -257,7 +257,10 @@
   }
   .mini .m .flag { font-size: 12px; line-height: 1; flex-shrink: 0; }
   .mini .m .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .mini .m.none { background: transparent; border-style: dashed; color: var(--muted); }
+  .mini .m.none { background: transparent; border-style: dashed; color: var(--muted); justify-content: center; }
+  .mini .m.none.filled { justify-content: flex-start; opacity: 0.65; }
+  .mini .m.none.filled .nm { font-weight: 400; }
+  .mini .m.none .vs { font-size: 9px; letter-spacing: -0.5px; }
   .mini .m.pending { background: var(--card); }
   .mini .m.correct { background: var(--pick-bg); border-color: var(--correct); color: var(--correct); font-weight: 600; }
   .mini .m.wrong { background: var(--wrong-bg); border-color: var(--wrong); color: var(--wrong); }
@@ -841,13 +844,24 @@
   function miniCell(id,px,src){
     const my=px[id]!=null?winnerOf(id,src):null;
     const done=RESULTS[id]!=null;
-    let cls='m';
-    if(!my) cls+=' none';
-    else if(!done) cls+=' pending';
-    else cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
-    if(!my) return '<div class="'+cls+'" title="M'+id+' — no pick">·</div>';
-    const t=TEAMS[my];
-    return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
+    if(my){
+      const cls='m '+(!done?'pending':(my===winnerOf(id,RESULTS)?'correct':'wrong'));
+      const t=TEAMS[my];
+      return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
+    }
+    // No pick — show what's actually there, greyed out.
+    const actual=done?winnerOf(id,RESULTS):null;
+    if(actual){
+      const t=TEAMS[actual];
+      return '<div class="m none filled" title="M'+id+': no pick — '+t.n+' won"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
+    }
+    // Not yet played — show the matchup flags if both participants are known.
+    const st=slotTeams(id,RESULTS);
+    if(st[0]&&st[1]){
+      return '<div class="m none filled" title="M'+id+': no pick — '+TEAMS[st[0]].n+' v '+TEAMS[st[1]].n+'">'+
+        '<span class="vs">'+TEAMS[st[0]].f+' v '+TEAMS[st[1]].f+'</span></div>';
+    }
+    return '<div class="m none" title="M'+id+' — no pick">·</div>';
   }
   function miniCol(ids,cls,px,src){
     return '<div class="col '+cls+'">'+ids.map(id=>miniCell(id,px,src)).join('')+'</div>';
