@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T22:45Z",
+  "updated": "2026-07-01T22:51Z",
   "matches": {
     "73": {
       "score": [
@@ -70,8 +70,7 @@
         3,
         2
       ],
-      "status": "LIVE",
-      "minute": "120'+7'"
+      "status": "FT"
     }
   }
 }
