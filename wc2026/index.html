@@ -18,6 +18,9 @@
     --pick-bg: #e7f2eb;
     --gold: #b8860b;
     --gold-bg: #fdf5e0;
+    --correct: #1e6b3a;
+    --wrong: #b3261e;
+    --wrong-bg: #fbeae9;
 
     --match-h: 64px;
     --bracket-h: 744px;        /* 8 R32 matches space-around → 93px per slot */
@@ -112,6 +115,40 @@
   }
   .side.right .match-date { text-align: right; }
 
+  /* ---- Results & scoring -------------------------------------------- */
+  .match.done .team { cursor: default; }
+  .match.done .team:hover { background: transparent; }
+  .match.done .team.picked:hover { background: var(--pick-bg); }
+  .team.actual { font-weight: 700; }
+  .team.actual::after {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text); margin-left: 4px; flex-shrink: 0;
+  }
+  .team.eliminated .team-name { opacity: 0.5; text-decoration: line-through; text-decoration-thickness: 1px; }
+  .verdict {
+    position: absolute; top: -8px; width: 16px; height: 16px; border-radius: 50%;
+    font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; color: #fff;
+    z-index: 1;
+  }
+  .side.left .verdict, .center .verdict { right: -6px; }
+  .side.right .verdict { left: -6px; }
+  .verdict.correct { background: var(--correct); }
+  .verdict.wrong { background: var(--wrong); }
+  .match.done .team.picked.wrong-pick { background: var(--wrong-bg); border-left-color: var(--wrong); color: var(--wrong); }
+  .side.right .match.done .team.picked.wrong-pick { border-right-color: var(--wrong); }
+  .miss-note {
+    position: absolute; top: calc(100% + 3px); left: 2px; right: 2px;
+    font-size: 9px; font-style: italic; color: var(--wrong);
+    line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .side.right .miss-note { text-align: right; }
+  .score {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    padding: 4px 10px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; font-variant-numeric: tabular-nums;
+  }
+  .score b { color: var(--correct); }
+
   /* ---- Connectors ---------------------------------------------------- */
   /* Per-round vertical connector heights = bracket-h / (2 × matches in prev round) × 2
      i.e. distance between adjacent prev-round match centers.               */
@@ -196,6 +233,7 @@
     <div class="sub">Click a team to advance them. Picks are saved in the URL — copy the link to share.</div>
   </div>
   <div class="controls">
+    <span class="score" id="score" title="Correct predictions on completed matches">Score <b>0</b>/0</span>
     <span class="progress" id="progress">0 / 32</span>
     <input type="text" id="bracket-name" placeholder="Bracket name" maxlength="40">
     <span class="share-wrap">
@@ -281,39 +319,95 @@
   };
   const ORDER = []; for (let i=73;i<=104;i++) ORDER.push(i);
 
+  // Actual results as they happen: matchId → winning slot index (0=top, 1=bottom).
+  // Update this object and redeploy as matches complete.
+  const RESULTS = {
+    73:1,  // Canada 1-0 South Africa
+    74:1,  // Paraguay bt Germany (1-1, 4-3 pens)
+    75:1,  // Morocco bt Netherlands (1-1, 3-2 pens)
+    76:0,  // Brazil 2-1 Japan
+    77:0,  // France bt Sweden
+    78:1,  // Norway 2-1 Ivory Coast
+    79:0,  // Mexico 2-0 Ecuador
+  };
+
   let picks = {}, bracketName = "";
 
-  function resolve(slot){
-    if (slot.t) return slot.t;
-    if (slot.w) return winner(slot.w);
-    if (slot.l) return loser(slot.l);
+  // Generic resolver: `src` is an object mapping matchId → chosen slot index.
+  // Passing `picks` gives the user's predicted bracket; `RESULTS` gives reality;
+  // a merged {...picks, ...RESULTS} gives the display bracket (reality where known,
+  // user prediction elsewhere).
+  function teamAt(slot,src){
+    if(slot.t) return slot.t;
+    if(slot.w!=null) return winnerOf(slot.w,src);
+    if(slot.l!=null) return loserOf(slot.l,src);
     return null;
   }
-  function slotTeams(id){ const m=MATCHES[id]; return [resolve(m.s[0]),resolve(m.s[1])]; }
-  function winner(id){ const p=picks[id]; if(p==null) return null; return slotTeams(id)[p]||null; }
-  function loser(id){ const p=picks[id]; if(p==null) return null; return slotTeams(id)[1-p]||null; }
+  function winnerOf(id,src){
+    const p=src[id]; if(p==null) return null;
+    return teamAt(MATCHES[id].s[p],src);
+  }
+  function loserOf(id,src){
+    const p=src[id]; if(p==null) return null;
+    return teamAt(MATCHES[id].s[1-p],src);
+  }
+  function slotTeams(id,src){
+    const m=MATCHES[id]; return [teamAt(m.s[0],src),teamAt(m.s[1],src)];
+  }
+
+  // Display source: reality wins where known (bracket shows actual advancing teams).
+  const displaySrc=()=>Object.assign({},picks,RESULTS);
+  // Prediction source: user's picks win; reality fills gaps they haven't picked.
+  const mySrc=()=>Object.assign({},RESULTS,picks);
 
   function setPick(id,slot){
-    const t=slotTeams(id); if(!t[slot]) return;
-    // Snapshot every existing pick's resolved winner before the change.
-    const before={};
-    for(const mid of ORDER) if(picks[mid]!=null) before[mid]=winner(mid);
-    // Apply the change (toggle off if re-clicking the same team).
+    if(RESULTS[id]!=null) return;                       // completed → locked
+    const t=slotTeams(id,displaySrc()); if(!t[slot]) return;
+    // Snapshot predicted winners so we can invalidate stale downstream picks.
+    const src0=mySrc(), before={};
+    for(const mid of ORDER) if(picks[mid]!=null) before[mid]=winnerOf(mid,src0);
     if(picks[id]===slot) delete picks[id]; else picks[id]=slot;
-    // Any other pick whose resolved winner no longer matches what it was
-    // is now stale — clear it. Iterating in match order makes this cascade.
     for(const mid of ORDER){
       if(mid===id||picks[mid]==null) continue;
-      if(winner(mid)!==before[mid]) delete picks[mid];
+      if(winnerOf(mid,mySrc())!==before[mid]) delete picks[mid];
     }
     save(); render();
   }
 
+  // ---- URL persistence: compact 11-char base64url of 32×2 bits ---------
+  const B64U={
+    enc:b=>btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+    dec:s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
+  };
+  function encodePicks(){
+    const bytes=new Uint8Array(8);
+    for(let i=0;i<ORDER.length;i++){
+      const p=picks[ORDER[i]];
+      const v=p===0?1:p===1?2:0;               // 00=none 01=top 10=bottom
+      bytes[i>>2]|=v<<((i&3)*2);
+    }
+    return B64U.enc(bytes);
+  }
+  function decodePicks(s){
+    if(!s) return;
+    if(/^[01-]+$/.test(s)&&s.length>12){        // legacy long format
+      for(let i=0;i<ORDER.length&&i<s.length;i++){
+        if(s[i]==='0')picks[ORDER[i]]=0; else if(s[i]==='1')picks[ORDER[i]]=1;
+      }
+      return;
+    }
+    try{
+      const bytes=B64U.dec(s);
+      for(let i=0;i<ORDER.length;i++){
+        const v=(bytes[i>>2]>>((i&3)*2))&3;
+        if(v===1)picks[ORDER[i]]=0; else if(v===2)picks[ORDER[i]]=1;
+      }
+    }catch(e){}
+  }
   function save(){
-    let p=""; for(const id of ORDER) p+=picks[id]===0?"0":picks[id]===1?"1":"-";
     const q=new URLSearchParams();
     if(bracketName) q.set("n",bracketName);
-    q.set("p",p);
+    q.set("p",encodePicks());
     history.replaceState(null,"","#"+q.toString());
   }
   function load(){
@@ -321,22 +415,25 @@
     try{
       const q=new URLSearchParams(location.hash.slice(1));
       bracketName=q.get("n")||"";
-      const p=q.get("p")||"";
-      for(let i=0;i<ORDER.length&&i<p.length;i++){
-        if(p[i]==="0") picks[ORDER[i]]=0;
-        else if(p[i]==="1") picks[ORDER[i]]=1;
-      }
+      decodePicks(q.get("p"));
     }catch(e){}
   }
 
   function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
 
-  function teamRow(id,idx,code,picked){
-    const d=el("div","team"+(code?"":" empty")+(picked?" picked":""));
+  function teamRow(id,idx,code,state){
+    // state: {picked, actualWinner, eliminated, locked, wrongPick}
+    let cls="team";
+    if(!code) cls+=" empty";
+    if(state.picked) cls+=" picked";
+    if(state.wrongPick) cls+=" wrong-pick";
+    if(state.actualWinner) cls+=" actual";
+    if(state.eliminated) cls+=" eliminated";
+    const d=el("div",cls);
     if(code){
       const t=TEAMS[code];
       d.innerHTML='<span class="flag">'+t.f+'</span><span class="team-name">'+t.n+'</span>';
-      d.onclick=()=>setPick(id,idx);
+      if(!state.locked) d.onclick=()=>setPick(id,idx);
     } else {
       const s=MATCHES[id].s[idx];
       const lbl=s.w?"Winner M"+s.w:s.l?"Loser M"+s.l:"—";
@@ -344,13 +441,35 @@
     }
     return d;
   }
+
   function matchCard(id,extraCls){
-    const t=slotTeams(id);
-    const c=el("div","match"+(extraCls?" "+extraCls:""));
+    const shown=slotTeams(id,displaySrc());           // teams on the card (reality-first)
+    const done=RESULTS[id]!=null;
+    const myWin=picks[id]!=null?winnerOf(id,mySrc()):null;  // team I predicted (my bracket, gaps filled by reality)
+    const realWin=done?winnerOf(id,RESULTS):null;
+    const verdict=done&&myWin ? (myWin===realWin?"correct":"wrong") : null;
+
+    const c=el("div","match"+(done?" done":"")+(extraCls?" "+extraCls:""));
     c.appendChild(el("span","match-tag","M"+id));
-    c.appendChild(teamRow(id,0,t[0],picks[id]===0));
-    c.appendChild(teamRow(id,1,t[1],picks[id]===1));
-    c.appendChild(el("span","match-date",MATCHES[id].d));
+    for(let i=0;i<2;i++){
+      const isMyPickRow = picks[id]===i && shown[i]===myWin;   // only highlight if the shown team IS what I predicted
+      c.appendChild(teamRow(id,i,shown[i],{
+        picked: isMyPickRow,
+        actualWinner: done && RESULTS[id]===i,
+        eliminated: done && RESULTS[id]!==i,
+        locked: done,
+        wrongPick: isMyPickRow && verdict==="wrong"
+      }));
+    }
+    if(verdict){
+      c.appendChild(el("span","verdict "+verdict, verdict==="correct"?"✓":"✕"));
+    }
+    // Caption: if I predicted a team that isn't even in this real matchup, note it; else show date/venue.
+    if(myWin && shown.indexOf(myWin)===-1){
+      c.appendChild(el("span","miss-note","you had "+TEAMS[myWin].n));
+    } else {
+      c.appendChild(el("span","match-date",MATCHES[id].d));
+    }
     return c;
   }
   function column(ids,cls,label){
@@ -371,7 +490,7 @@
     const c=el("div","center");
     c.appendChild(el("div","center-label final-label","Final"));
     c.appendChild(matchCard(104,"final"));
-    const champ=winner(104);
+    const champ=winnerOf(104,displaySrc());
     const box=el("div","champion"+(champ?" filled":""));
     box.innerHTML='<div class="champion-label">🏆 Champion</div><div class="champion-team">'+
       (champ?'<span class="flag">'+TEAMS[champ].f+'</span><span>'+TEAMS[champ].n+'</span>':'<span style="color:var(--muted);font-weight:400;font-size:13px">—</span>')+
@@ -390,8 +509,19 @@
     root.appendChild(side(LEFT,"left"));
     root.appendChild(center());
     root.appendChild(side(RIGHT,"right"));
-    let n=0; for(const id of ORDER) if(picks[id]!=null) n++;
-    document.getElementById("progress").textContent=n+" / 32 picks";
+    // progress + score
+    let nPicks=0, nDone=0, nCorrect=0;
+    const ms=mySrc();
+    for(const id of ORDER){
+      if(picks[id]!=null) nPicks++;
+      if(RESULTS[id]!=null && picks[id]!=null){
+        const my=winnerOf(id,ms);
+        if(my){ nDone++; if(my===winnerOf(id,RESULTS)) nCorrect++; }
+      }
+    }
+    document.getElementById("progress").textContent=nPicks+" / 32 picks";
+    document.getElementById("score").innerHTML="Score <b>"+nCorrect+"</b>/"+nDone;
+    document.getElementById("score").style.display=nDone?"":"none";
     document.getElementById("bracket-name").value=bracketName;
   }
 
