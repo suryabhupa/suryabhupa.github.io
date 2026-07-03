@@ -24,9 +24,11 @@ jobs:
         run: python3 wc2026/update_scores.py
 
       - name: Commit if changed
+        id: commit
         run: |
           if git diff --quiet wc2026/results.json; then
             echo "No changes to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name  "suryabhupa"
@@ -34,3 +36,22 @@ jobs:
           git add wc2026/results.json
           git commit -m "Auto-update scores"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Pages deploys occasionally fail with "try again later". If the last
+      # deployed commit isn't HEAD, poke a rebuild so the site catches up even
+      # when scores haven't changed this tick.
+      - name: Ensure Pages is up to date
+        if: steps.commit.outputs.changed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD=$(git rev-parse HEAD)
+          DEPLOYED=$(gh api repos/${{ github.repository }}/pages/builds \
+            --jq '[.[] | select(.status=="built")][0].commit' 2>/dev/null || echo "")
+          if [ "$DEPLOYED" != "$HEAD" ]; then
+            echo "Site is stale ($DEPLOYED vs $HEAD) — requesting Pages build"
+            gh api -X POST repos/${{ github.repository }}/pages/builds || true
+          else
+            echo "Site is current."
+          fi
