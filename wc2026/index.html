@@ -509,9 +509,8 @@
   // RESULTS[id] = winning slot index (derived from SCORES where status=FT).
   let SCORES = {}, RESULTS = {};
 
-  let ELIMINATED=new Set();   // team codes knocked out per RESULTS
   function deriveResults(){
-    RESULTS={}; ELIMINATED=new Set();
+    RESULTS={};
     for(const [id,r] of Object.entries(SCORES)){
       if(r.status!=="FT") continue;
       let w;
@@ -520,12 +519,24 @@
       else continue;
       RESULTS[+id]=w;
     }
-    // Second pass: collect losers now that RESULTS is complete (needed to
-    // resolve later-round slot teams).
-    for(const id in RESULTS){
-      const l=loserOf(+id,RESULTS);
-      if(l) ELIMINATED.add(l);
+  }
+  // Can `team` still end up in this slot given actual RESULTS so far?
+  // Handles winner-feeds AND loser-feeds (3rd place): a SF winner is dead
+  // for M103 but alive for M104; a SF loser is the reverse.
+  function canFillSlot(slot,team){
+    if(slot.t) return slot.t===team;
+    const feed=slot.w!=null?slot.w:slot.l;
+    const needWin=slot.w!=null;
+    if(RESULTS[feed]!=null){
+      return (needWin?winnerOf(feed,RESULTS):loserOf(feed,RESULTS))===team;
     }
+    const m=MATCHES[feed];
+    return canFillSlot(m.s[0],team)||canFillSlot(m.s[1],team);
+  }
+  // A predicted winner is "dead" for match `id` if it can't occupy either slot.
+  function isDead(id,team){
+    const m=MATCHES[id];
+    return !canFillSlot(m.s[0],team)&&!canFillSlot(m.s[1],team);
   }
   // ---- Live scores: ESPN direct (primary) with results.json fallback ----
   // ESPN display name → our team code. Includes aliases ESPN uses.
@@ -856,7 +867,7 @@
     const realWin=done?winnerOf(id,RESULTS):null;
     const verdict = myWin
       ? (done ? (myWin===realWin?"correct":"wrong")
-              : (ELIMINATED.has(myWin)?"wrong":null))
+              : (isDead(id,myWin)?"wrong":null))
       : null;
 
     const c=el("div","match"+(done?" done":"")+(live?" live":"")+(extraCls?" "+extraCls:""));
@@ -993,7 +1004,7 @@
     if(my){
       let cls;
       if(done) cls='m '+(my===winnerOf(id,RESULTS)?'correct':'wrong');
-      else if(ELIMINATED.has(my)) cls='m wrong';   // team already knocked out → dead branch
+      else if(isDead(id,my)) cls='m wrong';   // team can no longer reach this match
       else cls='m pending';
       const t=TEAMS[my];
       return '<div class="'+cls+'" title="M'+id+': picked '+t.n+'"><span class="flag">'+t.f+'</span><span class="nm">'+t.n+'</span></div>';
@@ -1029,7 +1040,7 @@
     let cls='m '+(extraCls||'');
     if(!my) cls+=' none';
     else if(done) cls+=(my===winnerOf(id,RESULTS))?' correct':' wrong';
-    else if(ELIMINATED.has(my)) cls+=' wrong';
+    else if(isDead(id,my)) cls+=' wrong';
     else cls+=' pending';
     if(!my) return '<div class="'+cls+'">—</div>';
     const t=TEAMS[my];
