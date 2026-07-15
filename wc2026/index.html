@@ -98,7 +98,11 @@
   .team.picked { background: var(--pick-bg); border-left-color: var(--pick); color: var(--pick); font-weight: 600; }
   .side.right .team.picked { border-right-color: var(--pick); }
   .team.picked:hover { background: #dbeee2; }
-  .flag { font-size: 16px; line-height: 1; width: 20px; text-align: center; flex-shrink: 0; }
+  .flag { display: inline-flex; align-items: center; flex-shrink: 0; }
+  .flag img {
+    height: 14px; width: auto; display: block;
+    border-radius: 2px; box-shadow: 0 0 1px rgba(46,40,18,0.4);
+  }
   .team-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .match-tag {
     position: absolute; top: -7px; font-size: 9px; color: var(--muted);
@@ -236,7 +240,7 @@
   .mini-hdr .sc { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .mini-hdr .sc b { color: var(--correct); font-size: 14px; }
   .mini-hdr .ch { font-size: 12px; color: var(--muted); margin-left: auto; }
-  .mini-hdr .ch .flag { font-size: 14px; }
+  .mini-hdr .ch .flag img { height: 12px; }
 
   .mini-scroll { overflow-x: auto; }
   .mini {
@@ -263,12 +267,13 @@
     display: flex; align-items: center; gap: 4px; padding: 0 6px;
     font-size: 10.5px; font-weight: 500;
   }
-  .mini .m .flag { font-size: 12px; line-height: 1; flex-shrink: 0; }
+  .mini .m .flag img { height: 10px; }
   .mini .m .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .mini .m.none { background: transparent; border-style: dashed; color: var(--muted); justify-content: center; }
   .mini .m.none.filled { justify-content: flex-start; opacity: 0.65; }
   .mini .m.none.filled .nm { font-weight: 400; }
-  .mini .m.none .vs { font-size: 9px; letter-spacing: -0.5px; }
+  .mini .m.none .vs { font-size: 9px; letter-spacing: -0.5px; display: inline-flex; align-items: center; gap: 3px; }
+  .mini .m.none .vs img { height: 9px; width: auto; border-radius: 1px; }
   .mini .m.pending { background: var(--card); }
   .mini .m.correct { background: var(--pick-bg); border-color: var(--correct); color: var(--correct); font-weight: 600; }
   .mini .m.wrong { background: var(--wrong-bg); border-color: var(--wrong); color: var(--wrong); }
@@ -436,24 +441,30 @@
 
 <script>
 (function() {
+  // Flags: flagcdn.com images (works on Windows where flag emoji don't render).
+  // `iso` is ISO 3166-1 alpha-2; England uses the gb-eng subdivision code.
+  const FLAG=iso=>'<img alt="" loading="lazy" '+
+    'src="https://flagcdn.com/h24/'+iso+'.png" '+
+    'srcset="https://flagcdn.com/h48/'+iso+'.png 2x">';
   const TEAMS = {
-    RSA:{n:"South Africa",f:"🇿🇦"}, CAN:{n:"Canada",f:"🇨🇦"},
-    BRA:{n:"Brazil",f:"🇧🇷"}, JPN:{n:"Japan",f:"🇯🇵"},
-    GER:{n:"Germany",f:"🇩🇪"}, PAR:{n:"Paraguay",f:"🇵🇾"},
-    NED:{n:"Netherlands",f:"🇳🇱"}, MAR:{n:"Morocco",f:"🇲🇦"},
-    CIV:{n:"Ivory Coast",f:"🇨🇮"}, NOR:{n:"Norway",f:"🇳🇴"},
-    FRA:{n:"France",f:"🇫🇷"}, SWE:{n:"Sweden",f:"🇸🇪"},
-    MEX:{n:"Mexico",f:"🇲🇽"}, ECU:{n:"Ecuador",f:"🇪🇨"},
-    ENG:{n:"England",f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿"}, COD:{n:"DR Congo",f:"🇨🇩"},
-    BEL:{n:"Belgium",f:"🇧🇪"}, SEN:{n:"Senegal",f:"🇸🇳"},
-    USA:{n:"United States",f:"🇺🇸"}, BIH:{n:"Bosnia & Herz.",f:"🇧🇦"},
-    ESP:{n:"Spain",f:"🇪🇸"}, AUT:{n:"Austria",f:"🇦🇹"},
-    POR:{n:"Portugal",f:"🇵🇹"}, CRO:{n:"Croatia",f:"🇭🇷"},
-    SUI:{n:"Switzerland",f:"🇨🇭"}, ALG:{n:"Algeria",f:"🇩🇿"},
-    AUS:{n:"Australia",f:"🇦🇺"}, EGY:{n:"Egypt",f:"🇪🇬"},
-    ARG:{n:"Argentina",f:"🇦🇷"}, CPV:{n:"Cape Verde",f:"🇨🇻"},
-    COL:{n:"Colombia",f:"🇨🇴"}, GHA:{n:"Ghana",f:"🇬🇭"}
+    RSA:{n:"South Africa",iso:"za"}, CAN:{n:"Canada",iso:"ca"},
+    BRA:{n:"Brazil",iso:"br"}, JPN:{n:"Japan",iso:"jp"},
+    GER:{n:"Germany",iso:"de"}, PAR:{n:"Paraguay",iso:"py"},
+    NED:{n:"Netherlands",iso:"nl"}, MAR:{n:"Morocco",iso:"ma"},
+    CIV:{n:"Ivory Coast",iso:"ci"}, NOR:{n:"Norway",iso:"no"},
+    FRA:{n:"France",iso:"fr"}, SWE:{n:"Sweden",iso:"se"},
+    MEX:{n:"Mexico",iso:"mx"}, ECU:{n:"Ecuador",iso:"ec"},
+    ENG:{n:"England",iso:"gb-eng"}, COD:{n:"DR Congo",iso:"cd"},
+    BEL:{n:"Belgium",iso:"be"}, SEN:{n:"Senegal",iso:"sn"},
+    USA:{n:"United States",iso:"us"}, BIH:{n:"Bosnia & Herz.",iso:"ba"},
+    ESP:{n:"Spain",iso:"es"}, AUT:{n:"Austria",iso:"at"},
+    POR:{n:"Portugal",iso:"pt"}, CRO:{n:"Croatia",iso:"hr"},
+    SUI:{n:"Switzerland",iso:"ch"}, ALG:{n:"Algeria",iso:"dz"},
+    AUS:{n:"Australia",iso:"au"}, EGY:{n:"Egypt",iso:"eg"},
+    ARG:{n:"Argentina",iso:"ar"}, CPV:{n:"Cape Verde",iso:"cv"},
+    COL:{n:"Colombia",iso:"co"}, GHA:{n:"Ghana",iso:"gh"}
   };
+  for(const t of Object.values(TEAMS)) t.f=FLAG(t.iso);
 
   // d = "date, time ET · city". Times TBD for R16 onward.
   const MATCHES = {
