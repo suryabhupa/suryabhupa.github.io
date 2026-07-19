@@ -1143,17 +1143,24 @@
     const TB_GATE=['grace','surya1','jonah'];
     const byName=Object.fromEntries(rows.map(r=>[r.name.toLowerCase().trim(),r]));
     const tbUnlocked=TB_GATE.every(n=>byName[n]&&byName[n].tb!=null);
-    // Closest-to-actual gets +1 point (all tied for closest get it).
-    let minDiff=null;
-    if(TB_ACTUAL!=null){
-      for(const r of rows) if(r.tbDiff!=null) minDiff=minDiff==null?r.tbDiff:Math.min(minDiff,r.tbDiff);
-    }
-    for(const r of rows){
-      r.tbBonus=(minDiff!=null && r.tbDiff===minDiff)?1:0;
-      r.pts=r.correct+r.tbBonus;
+    // Tiebreaker bonus: only applies to break a FIRST-PLACE TIE. Among people
+    // tied on the top base score, the closest guess gets +1. If someone is
+    // already alone at #1, no bonus is awarded to anyone.
+    for(const r of rows){ r.tbBonus=0; r.pts=r.correct; }
+    if(TB_ACTUAL!=null && rows.length){
+      const topScore=Math.max(...rows.map(r=>r.correct));
+      const leaders=rows.filter(r=>r.correct===topScore);
+      if(leaders.length>1){
+        let best=null;
+        for(const r of leaders) if(r.tbDiff!=null) best=best==null?r.tbDiff:Math.min(best,r.tbDiff);
+        if(best!=null){
+          for(const r of leaders) if(r.tbDiff===best){ r.tbBonus=1; r.pts=r.correct+1; }
+        }
+      }
     }
     rows.sort((a,b)=>
       b.pts-a.pts ||
+      b.correct-a.correct ||
       b.total-a.total ||
       a.name.localeCompare(b.name)
     );
