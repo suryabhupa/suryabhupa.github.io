@@ -393,6 +393,11 @@
     text-align: center; font-variant-numeric: tabular-nums; color: var(--text);
   }
   .tb-box input:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
+  .tb-box.locked { background: #fdfaf1; }
+  .tb-box .tb-value {
+    font-size: 18px; font-weight: 700; text-align: center;
+    font-variant-numeric: tabular-nums; padding: 4px 0;
+  }
 
   /* ---- Copy-link popup ---------------------------------------------- */
   .share-wrap { position: relative; display: inline-block; }
@@ -670,6 +675,8 @@
 
   let picks = {}, bracketName = "", bracketTB = null;
   let TB_ACTUAL = null;   // set from results.json once the final is done
+  // Final has kicked off (LIVE or FT) → guesses revealed, input locked.
+  const finalStarted=()=>SCORES[104]!=null;
 
   // Strip tracking params (fbclid, utm_*, gclid, igshid, …) that Messenger/etc.
   // append. This page uses only the #hash for state, so any ?query is noise.
@@ -958,17 +965,25 @@
       '</div>';
     c.appendChild(box);
     // Tiebreaker input sits between Champion and Third Place.
-    const tbBox=el("div","tb-box");
-    tbBox.innerHTML='<div class="lbl">Tiebreaker</div>'+
-      '<input type="number" id="bracket-tb" min="0" max="99" placeholder="?">'+
-      '<div class="hint">goals + corners + yellows in the Final</div>';
-    const tbInput=tbBox.querySelector('input');
-    tbInput.value=bracketTB==null?"":bracketTB;
-    tbInput.oninput=e=>{
-      const v=e.target.value.trim();
-      bracketTB=v===""?null:Math.max(0,Math.min(99,+v|0));
-      save();
-    };
+    const locked=finalStarted();
+    const tbBox=el("div","tb-box"+(locked?" locked":""));
+    if(locked){
+      tbBox.innerHTML='<div class="lbl">Tiebreaker <span style="font-weight:400">· locked</span></div>'+
+        '<div class="tb-value">'+(bracketTB==null?'—':bracketTB)+'</div>'+
+        '<div class="hint">goals + corners + yellows in the Final'+
+        (TB_ACTUAL!=null?' · actual <b>'+TB_ACTUAL+'</b>':'')+'</div>';
+    } else {
+      tbBox.innerHTML='<div class="lbl">Tiebreaker</div>'+
+        '<input type="number" id="bracket-tb" min="0" max="99" placeholder="?">'+
+        '<div class="hint">goals + corners + yellows in the Final · locks at kickoff</div>';
+      const tbInput=tbBox.querySelector('input');
+      tbInput.value=bracketTB==null?"":bracketTB;
+      tbInput.oninput=e=>{
+        const v=e.target.value.trim();
+        bracketTB=v===""?null:Math.max(0,Math.min(99,+v|0));
+        save();
+      };
+    }
     c.appendChild(tbBox);
     const tb=el("div","third-block");
     tb.appendChild(el("div","center-label","Third Place"));
@@ -1139,10 +1154,8 @@
       const tbDiff=(TB_ACTUAL!=null&&tb!=null)?Math.abs(tb-TB_ACTUAL):null;
       return {idx,name:e.name,code:e.code,tb,tbDiff,px,src:Object.assign({},RESULTS,px),...s};
     });
-    // Sealed-bid: hide guesses until every gate name has submitted one.
-    const TB_GATE=['grace','surya1','jonah'];
-    const byName=Object.fromEntries(rows.map(r=>[r.name.toLowerCase().trim(),r]));
-    const tbUnlocked=TB_GATE.every(n=>byName[n]&&byName[n].tb!=null);
+    // Sealed-bid: hide guesses until the Final kicks off.
+    const tbUnlocked=finalStarted();
     // Tiebreaker bonus: only applies to break a FIRST-PLACE TIE. Among people
     // tied on the top base score, the closest guess gets +1. If someone is
     // already alone at #1, no bonus is awarded to anyone.
@@ -1198,7 +1211,7 @@
         : '<b>'+r.pts+'</b> / '+r.total;
       let tbCell;
       if(r.tb==null) tbCell='<span style="color:var(--muted)">—</span>';
-      else if(!tbUnlocked) tbCell='<span style="color:var(--muted)" title="Hidden until grace, surya1 and jonah have all submitted">🔒</span>';
+      else if(!tbUnlocked) tbCell='<span style="color:var(--muted)" title="Hidden until the Final kicks off">🔒</span>';
       else tbCell='<b>'+r.tb+'</b>'+(r.tbDiff!=null?' <span class="tb-diff">Δ'+r.tbDiff+'</span>':'');
       html+='<tr data-edit="'+r.idx+'" title="Click to open this bracket in the editor"><td class="rank">'+(i+1)+'</td>'+
         '<td class="lb-name">'+escapeHtml(r.name)+'</td>'+
