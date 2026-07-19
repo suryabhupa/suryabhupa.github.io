@@ -45,11 +45,12 @@
   h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
   .sub { font-size: 12px; color: var(--muted); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
-  input[type="text"] {
+  input[type="text"], input[type="number"] {
     background: var(--card); border: 1px solid var(--line); color: var(--text);
     padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; width: 180px;
   }
-  input[type="text"]:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
+  input[type="number"] { font-variant-numeric: tabular-nums; }
+  input[type="text"]:focus, input[type="number"]:focus { outline: 2px solid var(--pick); outline-offset: -1px; }
   button {
     background: var(--card); border: 1px solid var(--line); color: var(--text);
     padding: 7px 12px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
@@ -223,6 +224,8 @@
   .leaderboard .lb-champ { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
   .leaderboard td { vertical-align: middle; }
   .leaderboard .rounds { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .leaderboard .lb-tb { font-variant-numeric: tabular-nums; }
+  .leaderboard .tb-diff { font-size: 10px; color: var(--muted); margin-left: 2px; }
   .leaderboard .rm {
     background: none; border: none; color: var(--muted); cursor: pointer;
     font-size: 16px; padding: 2px 6px; line-height: 1;
@@ -408,6 +411,9 @@
     <span class="score" id="score" title="Correct predictions on completed matches">Score <b>0</b>/0</span>
     <span class="progress" id="progress">0 / 32</span>
     <input type="text" id="bracket-name" placeholder="Bracket name" maxlength="40">
+    <input type="number" id="bracket-tb" placeholder="Tiebreak" min="0" max="99"
+           title="Tiebreaker: total goals + corners + yellow cards in the Final"
+           style="width:82px">
     <span class="share-wrap">
       <button class="primary" id="share-btn">Copy share link</button>
       <span class="copy-tip" id="copy-tip">Link copied!</span>
@@ -632,16 +638,18 @@
         if(Object.keys(s).length) next=s;
       }
     }catch(e){/* fall through */}
-    // Fallback: results.json (populated by the GitHub Action).
-    if(!next){
-      try{
-        const r=await fetch("results.json?t="+Date.now(),{cache:"no-store"});
-        if(r.ok){
-          const d=await r.json();
-          if(d&&d.matches) next=Object.fromEntries(Object.entries(d.matches).map(([k,v])=>[+k,v]));
+    // results.json: fallback for scores, and always the source for the
+    // tiebreaker actual (ESPN's basic scoreboard doesn't expose corners/cards).
+    try{
+      const r=await fetch("results.json?t="+Date.now(),{cache:"no-store"});
+      if(r.ok){
+        const d=await r.json();
+        if(d){
+          if(typeof d.tiebreaker==='number') TB_ACTUAL=d.tiebreaker;
+          if(!next && d.matches) next=Object.fromEntries(Object.entries(d.matches).map(([k,v])=>[+k,v]));
         }
-      }catch(e){}
-    }
+      }
+    }catch(e){}
     if(!next) return;
     SCORES=next;
     deriveResults();
@@ -650,7 +658,8 @@
     }
   }
 
-  let picks = {}, bracketName = "";
+  let picks = {}, bracketName = "", bracketTB = null;
+  let TB_ACTUAL = null;   // set from results.json once the final is done
 
   // Strip tracking params (fbclid, utm_*, gclid, igshid, …) that Messenger/etc.
   // append. This page uses only the #hash for state, so any ?query is noise.
@@ -750,10 +759,14 @@
       const m=txt.match(/setResponse\((.*)\);?\s*$/s);
       if(!m) return [];
       const data=JSON.parse(m[1]);
-      return (data.table.rows||[]).map(r=>({
-        name:String(r.c?.[0]?.v||'').trim(),
-        code:String(r.c?.[1]?.v||'').trim()
-      })).filter(e=>e.name&&e.code);
+      return (data.table.rows||[]).map(r=>{
+        const tbRaw=r.c?.[2]?.v;
+        return {
+          name:String(r.c?.[0]?.v||'').trim(),
+          code:String(r.c?.[1]?.v||'').trim(),
+          tb:(tbRaw!=null&&tbRaw!=='')?(+tbRaw|0):null
+        };
+      }).filter(e=>e.name&&e.code);
     }
     return (JSON.parse(txt).entries||[]);
   }
@@ -764,7 +777,7 @@
         const txt=await fetch(url+sep+"t="+Date.now(),{cache:"no-store"}).then(r=>r.text());
         const entries=parsePool(url,txt);
         if(entries.length){
-          cmpEntries=entries.map(e=>({name:e.name,code:normalizeCode(e.code)}));
+          cmpEntries=entries.map(e=>({name:e.name,code:normalizeCode(e.code),tb:e.tb??null}));
           cmpFromPool=true;
           return;
         }
@@ -782,9 +795,11 @@
     if(s.includes('=')){
       const q=new URLSearchParams(s);
       const p=q.get('p'); if(!p) return null;
-      return {name:(q.get('n')||'').slice(0,40)||'(unnamed)', code:normalizeCode(p)};
+      const tb=q.get('tb');
+      return {name:(q.get('n')||'').slice(0,40)||'(unnamed)', code:normalizeCode(p),
+              tb:(tb!=null&&tb!=='')?(+tb|0):null};
     }
-    return {name:'(unnamed)', code:normalizeCode(s)};
+    return {name:'(unnamed)', code:normalizeCode(s), tb:null};
   }
   function normalizeCode(p){
     // Convert legacy long form to compact for storage
@@ -801,8 +816,8 @@
   }
 
   function save(){
-    // Bracket mode with no picks and no name → keep the URL bare.
-    if(mode==="bracket" && !bracketName && !Object.keys(picks).length){
+    // Bracket mode with nothing set → keep the URL bare.
+    if(mode==="bracket" && !bracketName && bracketTB==null && !Object.keys(picks).length){
       history.replaceState(null,"",location.pathname);
       return;
     }
@@ -812,11 +827,14 @@
       // Only encode entries into the URL for ad-hoc comparisons; the canonical
       // pool loads from pool.json and keeps the URL short.
       if(cmpEntries.length && !cmpFromPool){
-        q.set("b",cmpEntries.map(e=>encodeURIComponent(e.name)+"~"+e.code).join("!"));
+        q.set("b",cmpEntries.map(e=>
+          encodeURIComponent(e.name)+"~"+e.code+(e.tb!=null?"~"+e.tb:"")
+        ).join("!"));
       }
     } else {
       if(bracketName) q.set("n",bracketName);
       q.set("p",encodePicks());
+      if(bracketTB!=null) q.set("tb",bracketTB);
     }
     history.replaceState(null,"","#"+q.toString());
   }
@@ -829,8 +847,13 @@
         const b=q.get("b");
         if(b){
           cmpEntries=b.split("!").map(part=>{
-            const i=part.indexOf("~");
-            return i<0?null:{name:decodeURIComponent(part.slice(0,i))||'(unnamed)',code:part.slice(i+1)};
+            const seg=part.split("~");
+            if(seg.length<2) return null;
+            return {
+              name:decodeURIComponent(seg[0])||'(unnamed)',
+              code:seg[1],
+              tb:seg[2]!=null&&seg[2]!==''?(+seg[2]|0):null
+            };
           }).filter(Boolean);
           cmpFromPool=false;
         }
@@ -838,6 +861,8 @@
       } else {
         bracketName=q.get("n")||"";
         picks=decodePicks(q.get("p"));
+        const tb=q.get("tb");
+        bracketTB=(tb!=null&&tb!=="")?Math.max(0,Math.min(99,+tb|0)):null;
       }
     }catch(e){}
   }
@@ -959,9 +984,15 @@
     document.getElementById("score").innerHTML="Score <b>"+nCorrect+"</b>/"+nDone;
     document.getElementById("score").style.display=nDone?"":"none";
     document.getElementById("bracket-name").value=bracketName;
+    document.getElementById("bracket-tb").value=bracketTB==null?"":bracketTB;
   }
 
   document.getElementById("bracket-name").oninput=e=>{bracketName=e.target.value;save();};
+  document.getElementById("bracket-tb").oninput=e=>{
+    const v=e.target.value.trim();
+    bracketTB=v===""?null:Math.max(0,Math.min(99,+v|0));
+    save();
+  };
   let tipTimer=null;
   document.getElementById("share-btn").onclick=()=>{
     save();
@@ -1097,8 +1128,15 @@
     const rows=cmpEntries.map((e,idx)=>{
       const px=decodePicks(e.code);
       const s=scoreBracket(px);
-      return {idx,name:e.name,code:e.code,px,src:Object.assign({},RESULTS,px),...s};
-    }).sort((a,b)=>b.correct-a.correct||b.total-a.total);
+      const tb=e.tb;
+      const tbDiff=(TB_ACTUAL!=null&&tb!=null)?Math.abs(tb-TB_ACTUAL):null;
+      return {idx,name:e.name,code:e.code,tb,tbDiff,px,src:Object.assign({},RESULTS,px),...s};
+    }).sort((a,b)=>
+      b.correct-a.correct ||
+      (a.tbDiff??1e9)-(b.tbDiff??1e9) ||   // closest to actual wins tie
+      b.total-a.total ||
+      a.name.localeCompare(b.name)
+    );
 
     // ---- Leaderboard ----
     let html='';
@@ -1117,9 +1155,12 @@
             '<button class="link-btn" id="go-pool">← back to '+escapeHtml(POOL_TITLE)+'</button>'+
             '</div>';
     }
+    const tbHdr=TB_ACTUAL!=null
+      ? '<th title="Tiebreaker: goals+corners+yellows in the Final. Actual = '+TB_ACTUAL+'.">Tiebreak <span style="font-weight:400">(actual '+TB_ACTUAL+')</span></th>'
+      : '<th title="Tiebreaker: predicted goals+corners+yellows in the Final">Tiebreak</th>';
     html+='<table class="leaderboard"><thead><tr>'+
       '<th class="rank">#</th><th>Name</th><th>Score</th><th>Champion Pick</th>'+
-      '<th>By round</th>'+(cmpFromPool?'':'<th></th>')+'</tr></thead><tbody>';
+      tbHdr+'<th>By round</th>'+(cmpFromPool?'':'<th></th>')+'</tr></thead><tbody>';
     rows.forEach((r,i)=>{
       const rounds=Object.entries(r.perRound).filter(([,v])=>v.t>0)
         .map(([k,v])=>k+' '+v.c+'/'+v.t).join(' · ')||'—';
@@ -1127,6 +1168,9 @@
         '<td class="lb-name">'+escapeHtml(r.name)+'</td>'+
         '<td class="lb-score"><b>'+r.correct+'</b> / '+r.total+'</td>'+
         '<td><span class="lb-champ">'+(r.champ?'<span class="flag">'+TEAMS[r.champ].f+'</span>'+TEAMS[r.champ].n:'<span style="color:var(--muted)">—</span>')+'</span></td>'+
+        '<td class="lb-tb">'+(r.tb==null
+          ?'<span style="color:var(--muted)">—</span>'
+          :'<b>'+r.tb+'</b>'+(r.tbDiff!=null?' <span class="tb-diff">Δ'+r.tbDiff+'</span>':''))+'</td>'+
         '<td class="rounds">'+rounds+'</td>'+
         (cmpFromPool?'':'<td><button class="rm" data-rm="'+r.idx+'" title="Remove">×</button></td>')+'</tr>';
     });
@@ -1205,7 +1249,7 @@
   };
   document.getElementById("add-mine-btn").onclick=()=>{
     if(!Object.keys(picks).length){alert("Your bracket is empty — make some picks on the My Bracket tab first.");return;}
-    addEntry({name:bracketName||"Me",code:encodePicks()});
+    addEntry({name:bracketName||"Me",code:encodePicks(),tb:bracketTB});
   };
   document.getElementById("share-cmp-btn").onclick=()=>{
     save();
@@ -1224,6 +1268,7 @@
     }
     picks=decodePicks(e.code);
     bracketName=e.name==='(unnamed)'?'':e.name;
+    bracketTB=e.tb??null;
     setMode("bracket");
   }
 

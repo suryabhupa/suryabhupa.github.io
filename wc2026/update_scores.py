@@ -124,6 +124,7 @@ def main() -> int:
         current = json.loads(RESULTS_PATH.read_text())
         results = dict(current.get("matches", {}))
     except Exception:
+        current = {}
         results = {}
 
     try:
@@ -204,6 +205,9 @@ def main() -> int:
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
         "matches": dict(sorted(results.items(), key=lambda kv: int(kv[0]))),
     }
+    # Preserve manually-set tiebreaker actual (goals+corners+yellows in the final).
+    if "tiebreaker" in current:
+        out["tiebreaker"] = current["tiebreaker"]
     RESULTS_PATH.write_text(json.dumps(out, indent=2) + "\n")
     print(f"wrote {RESULTS_PATH}")
     return 0
