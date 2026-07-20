@@ -1,10 +1,7 @@
 name: Update live scores
 
 on:
-  schedule:
-    # Every 5 minutes during the knockout window (Jun 28 – Jul 19).
-    # GitHub cron is UTC; matches run roughly 16:00–05:00 UTC.
-    - cron: '*/5 * * * *'
+  # Tournament over — cron disabled. Kept as manual-only for reference.
   workflow_dispatch:
 
 permissions:
